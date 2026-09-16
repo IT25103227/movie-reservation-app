@@ -1,4 +1,4 @@
-package com.example.moviereservation.model;
+package com.example.movie_reservation.model;
 
 import jakarta.persistence.*;
 
@@ -15,12 +15,14 @@ public class Movie {
     private Double ticketPrice;
 
     public Movie() {}
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getGenre() { return genre; }
-    public void setGenre(String genre) { this.genre = genre; }
+    public void setGenre(String genre) {
+        this.genre = genre; }
     public Integer getDurationMinutes() { return durationMinutes; }
     public void setDurationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; }
     public String getShowtime() { return showtime; }

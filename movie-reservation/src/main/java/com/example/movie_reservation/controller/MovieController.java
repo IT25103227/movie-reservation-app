@@ -1,8 +1,7 @@
-// MovieController.java
-package com.example.moviereservation.controller;
+package com.example.movie_reservation.controller;
 
-import com.example.moviereservation.model.Movie;
-import com.example.moviereservation.repository.MovieRepository;
+import com.example.movie_reservation.model.Movie;
+import com.example.movie_reservation.repository.MovieRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -11,11 +10,23 @@ import java.util.List;
 @RequestMapping("/api/movies")
 @CrossOrigin(origins = "*")
 public class MovieController {
-    private final MovieRepository repo;
-    public MovieController(MovieRepository repo) { this.repo = repo; }
 
-    @GetMapping public List<Movie> getAll() { return repo.findAll(); }
-    @PostMapping public Movie create(@RequestBody Movie item) { return repo.save(item); }
+    private final MovieRepository repo;
+
+    public MovieController(MovieRepository repo) {
+        this.repo = repo;
+    }
+
+    @GetMapping
+    public List<Movie> getAll() {
+        return repo.findAll();
+    }
+
+    @PostMapping
+    public Movie create(@RequestBody Movie movie) {
+        return repo.save(movie);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<Movie> update(@PathVariable Long id, @RequestBody Movie details) {
         return repo.findById(id).map(existing -> {
@@ -27,9 +38,13 @@ public class MovieController {
             return ResponseEntity.ok(repo.save(existing));
         }).orElse(ResponseEntity.notFound().build());
     }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (repo.existsById(id)) { repo.deleteById(id); return ResponseEntity.noContent().build(); }
+        if (repo.existsById(id)) {
+            repo.deleteById(id);
+            return ResponseEntity.noContent().build();
+        }
         return ResponseEntity.notFound().build();
     }
 }

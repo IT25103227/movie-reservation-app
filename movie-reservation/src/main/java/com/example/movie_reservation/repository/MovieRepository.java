@@ -1,5 +1,7 @@
-// MovieRepository.java
-package com.example.moviereservation.repository;
-import com.example.moviereservation.model.Movie;
+package com.example.movie_reservation.repository;
+
+import com.example.movie_reservation.model.Movie;
 import org.springframework.data.jpa.repository.JpaRepository;
-public interface MovieRepository extends JpaRepository<Movie, Long> {}
+
+public interface MovieRepository extends JpaRepository<Movie, Long> {
+}
