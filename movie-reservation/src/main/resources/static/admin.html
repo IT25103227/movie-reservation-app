@@ -124,7 +124,7 @@
             <div class="card p-3">
                 <h5>Registered Movie Bookings</h5>
                 <table class="table table-dark table-hover">
-                    <thead><tr><th>ID</th><th>Customer</th><th>Movie</th><th>Hall</th><th>Seats</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead><tr><th>ID</th><th>Customer</th><th>Movie</th><th>Hall</th><th>Seats</th><th>Parking</th><th>Snacks</th><th>Discount</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody id="bookingTable"></tbody>
                 </table>
             </div>
@@ -280,7 +280,11 @@
         const res = await fetch('/api/bookings');
         const data = await res.json();
         document.getElementById('bookingTable').innerHTML = data.map(b => `
-                <tr><td>${b.id}</td><td>${b.customerName}</td><td>${b.movieTitle}</td><td>${b.hallName}</td><td>${b.seatNumbers}</td><td>$${b.totalAmount}</td><td>${b.status}</td>
+                <tr><td>${b.id}</td><td>${b.customerName}</td><td>${b.movieTitle}</td><td>${b.hallName}</td><td>${b.seatNumbers}</td>
+                <td>${b.parkingSlotId ? `<span class="badge bg-success">Slot #${b.parkingSlotId}</span>` : '—'}</td>
+                <td style="max-width:120px;font-size:.75rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${b.orderedSnacks || ''}">${b.orderedSnacks || '—'}</td>
+                <td>${b.discountAmount ? `<span class="badge bg-warning text-dark">-$${Number(b.discountAmount).toFixed(2)}</span>` : '—'}</td>
+                <td>$${b.totalAmount}</td><td>${b.status}</td>
                 <td><button class="btn btn-sm btn-danger" onclick="cancelBooking(${b.id})">Cancel</button></td></tr>
             `).join('');
     }

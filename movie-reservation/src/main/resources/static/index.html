@@ -2,154 +2,1040 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SilverScreen Cinema - Customer Experience</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SilverScreen Cinema — Book Tickets</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        body { background-color: #0b0f19; color: #f1f5f9; font-family: system-ui, sans-serif; }
-        .hero { background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.9)), url('https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1200&q=80'); background-size: cover; padding: 50px 20px; border-radius: 12px; margin-bottom: 25px; }
-        .card { background-color: #1e293b; border: 1px solid #334155; color: #f8fafc; }
+        /* ── Base ── */
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            background: #080c14;
+            color: #e2e8f0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            min-height: 100vh;
+        }
+
+        /* ── Hero ── */
+        .hero {
+            background: linear-gradient(160deg, #0f1f3d 0%, #0d1117 60%),
+                        url('https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1400&q=80') center/cover no-repeat;
+            background-blend-mode: multiply;
+            padding: 36px 24px 28px;
+            border-bottom: 1px solid #1e2d47;
+        }
+
+        /* ── Progress bar ── */
+        .checkout-steps {
+            display: flex;
+            gap: 0;
+            background: #0f1824;
+            border-bottom: 1px solid #1e2d47;
+            padding: 0 24px;
+        }
+        .step-pill {
+            flex: 1;
+            text-align: center;
+            padding: 14px 4px;
+            font-size: .78rem;
+            font-weight: 600;
+            letter-spacing: .04em;
+            color: #475569;
+            border-bottom: 3px solid transparent;
+            transition: color .25s, border-color .25s;
+            cursor: default;
+            user-select: none;
+        }
+        .step-pill.active   { color: #38bdf8; border-color: #38bdf8; }
+        .step-pill.done     { color: #22c55e; border-color: #22c55e; }
+        .step-pill .num     { display: inline-flex; align-items: center; justify-content: center;
+                               width: 22px; height: 22px; border-radius: 50%; font-size: .72rem;
+                               margin-right: 6px; background: #1e293b; }
+        .step-pill.active .num { background: #38bdf8; color: #020617; }
+        .step-pill.done .num   { background: #22c55e; color: #020617; }
+
+        /* ── Cards ── */
+        .checkout-card {
+            background: #111827;
+            border: 1px solid #1e293b;
+            border-radius: 14px;
+            padding: 28px;
+        }
+        .section-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            color: #94a3b8;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+
+        /* ── Seat Grid ── */
+        .screen-wrap {
+            text-align: center;
+            margin-bottom: 18px;
+        }
+        .screen-bar {
+            display: inline-block;
+            width: min(340px, 90%);
+            height: 14px;
+            background: linear-gradient(180deg, #e2e8f0 0%, #94a3b8 100%);
+            border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+            box-shadow: 0 0 28px 6px rgba(148,163,184,.35);
+            margin-bottom: 6px;
+        }
+        .screen-label {
+            font-size: .7rem;
+            letter-spacing: .15em;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+        .seat-grid {
+            display: grid;
+            grid-template-columns: 24px repeat(6, 1fr);
+            gap: 7px;
+            max-width: 360px;
+            margin: 0 auto;
+        }
+        .row-label {
+            display: flex; align-items: center; justify-content: center;
+            font-size: .7rem; color: #64748b; font-weight: 700;
+        }
+        .seat-btn {
+            aspect-ratio: 1;
+            border: none; border-radius: 6px 6px 2px 2px;
+            font-size: .65rem; font-weight: 700;
+            cursor: pointer;
+            transition: transform .12s, box-shadow .12s;
+            position: relative;
+        }
+        .seat-btn::after {
+            content: '';
+            position: absolute; bottom: -3px; left: 10%; right: 10%;
+            height: 3px; border-radius: 0 0 3px 3px;
+            background: rgba(0,0,0,.35);
+        }
+        .seat-btn.available  { background: #166534; color: #bbf7d0; }
+        .seat-btn.available:hover { transform: scale(1.13); box-shadow: 0 0 10px #22c55e88; }
+        .seat-btn.selected   { background: #f59e0b; color: #1c1917; box-shadow: 0 0 12px #f59e0b88; }
+        .seat-btn.reserved   { background: #7f1d1d; color: #fca5a5; cursor: not-allowed; opacity: .7; }
+        .seat-legend {
+            display: flex; gap: 18px; justify-content: center;
+            margin-top: 16px; font-size: .75rem;
+        }
+        .legend-dot {
+            width: 13px; height: 13px; border-radius: 3px;
+            display: inline-block; margin-right: 5px; vertical-align: middle;
+        }
+
+        /* ── Parking Floorplan ── */
+        .parking-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            max-width: 380px;
+        }
+        .bay-btn {
+            padding: 14px 6px 10px;
+            border: 2px solid transparent;
+            border-radius: 10px;
+            font-size: .72rem; font-weight: 700;
+            text-align: center;
+            cursor: pointer;
+            transition: transform .12s, box-shadow .12s;
+            position: relative;
+        }
+        .bay-btn .bay-icon { font-size: 1.4rem; display: block; margin-bottom: 4px; }
+        .bay-btn.available  { background: #14532d; color: #86efac; border-color: #166534; }
+        .bay-btn.available:hover { transform: scale(1.07); box-shadow: 0 0 14px #22c55e66; }
+        .bay-btn.reserved   { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; cursor: not-allowed; opacity: .65; }
+        .bay-btn.selected   { background: #1e3a5f; color: #93c5fd; border-color: #3b82f6; box-shadow: 0 0 14px #3b82f666; }
+
+        /* ── Concession Cards ── */
+        .concession-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+        }
+        .snack-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 14px 12px;
+            text-align: center;
+            transition: border-color .2s;
+        }
+        .snack-card.has-items { border-color: #f59e0b; }
+        .snack-icon { font-size: 2rem; margin-bottom: 6px; }
+        .snack-name { font-size: .82rem; font-weight: 600; margin-bottom: 2px; }
+        .snack-price { font-size: .75rem; color: #f59e0b; margin-bottom: 10px; }
+        .qty-ctrl { display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .qty-btn {
+            width: 26px; height: 26px; border-radius: 50%;
+            border: none; font-size: 1rem; font-weight: 700; line-height: 1;
+            cursor: pointer; transition: background .15s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .qty-btn.minus { background: #334155; color: #94a3b8; }
+        .qty-btn.plus  { background: #0ea5e9; color: #fff; }
+        .qty-btn.minus:hover { background: #475569; }
+        .qty-btn.plus:hover  { background: #0284c7; }
+        .qty-display { font-size: .9rem; font-weight: 700; min-width: 20px; text-align: center; }
+
+        /* ── Promo ── */
+        .promo-wrap { display: flex; gap: 8px; }
+        .promo-input { background: #1e293b; border: 1px solid #334155; color: #f1f5f9;
+                       border-radius: 8px; padding: 8px 14px; flex: 1; font-size: .88rem; }
+        .promo-input:focus { outline: none; border-color: #38bdf8; }
+        .promo-input::placeholder { color: #475569; }
+        .promo-apply { background: #0ea5e9; border: none; border-radius: 8px; padding: 8px 18px;
+                        color: #fff; font-weight: 700; cursor: pointer; font-size: .88rem; }
+        .promo-apply:hover { background: #0284c7; }
+        #promoFeedback { font-size: .82rem; margin-top: 8px; min-height: 20px; }
+
+        /* ── Grand Total bar ── */
+        .total-bar {
+            background: linear-gradient(90deg, #0f2444, #0f1f3d);
+            border: 1px solid #1e3a5f;
+            border-radius: 12px;
+            padding: 16px 22px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; bottom: 16px;
+            backdrop-filter: blur(6px);
+        }
+        .total-label { font-size: .82rem; color: #94a3b8; font-weight: 600; }
+        .total-amount { font-size: 1.6rem; font-weight: 800; color: #f59e0b; }
+
+        /* ── Buttons ── */
+        .btn-next {
+            background: #0ea5e9; border: none; border-radius: 10px;
+            padding: 12px 32px; color: #fff; font-weight: 700; font-size: .95rem;
+            cursor: pointer; transition: background .15s;
+        }
+        .btn-next:hover { background: #0284c7; }
+        .btn-back {
+            background: transparent; border: 1px solid #334155; border-radius: 10px;
+            padding: 12px 24px; color: #94a3b8; font-weight: 600; font-size: .95rem;
+            cursor: pointer; transition: all .15s;
+        }
+        .btn-back:hover { border-color: #475569; color: #e2e8f0; }
+        .btn-confirm {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border: none; border-radius: 10px; padding: 14px 40px;
+            color: #1c1917; font-weight: 800; font-size: 1rem; cursor: pointer;
+            transition: opacity .15s; width: 100%;
+        }
+        .btn-confirm:hover { opacity: .9; }
+
+        /* ── Review Summary ── */
+        .summary-row {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            padding: 11px 0; border-bottom: 1px solid #1e293b; font-size: .9rem;
+        }
+        .summary-row:last-child { border-bottom: none; }
+        .summary-key { color: #94a3b8; font-weight: 600; }
+        .summary-val { text-align: right; color: #f1f5f9; font-weight: 600; }
+        .seat-chip {
+            display: inline-block; background: #1e3a5f; color: #93c5fd;
+            border-radius: 6px; padding: 2px 9px; font-size: .75rem;
+            font-weight: 700; margin: 2px;
+        }
+        .parking-badge {
+            background: #14532d; color: #86efac; border-radius: 8px;
+            padding: 4px 12px; font-size: .82rem; font-weight: 700;
+        }
+
+        /* ── Digital Ticket Modal ── */
+        .ticket-modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.82); z-index: 1050;
+            align-items: center; justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .ticket-modal-overlay.show { display: flex; }
+        .ticket-wrap {
+            background: #fff; border-radius: 16px; overflow: hidden;
+            width: min(420px, 94vw); box-shadow: 0 30px 80px rgba(0,0,0,.6);
+            color: #1e293b; position: relative;
+        }
+        .ticket-header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            padding: 22px 24px 16px;
+            color: #fff; text-align: center;
+        }
+        .ticket-cinema { font-size: .7rem; letter-spacing: .2em; text-transform: uppercase; color: #94a3b8; }
+        .ticket-movie  { font-size: 1.3rem; font-weight: 800; margin: 4px 0; }
+        .ticket-body { padding: 20px 24px; }
+        .ticket-perforation {
+            height: 0; border-top: 2px dashed #cbd5e1;
+            margin: 14px -24px; position: relative;
+        }
+        .ticket-perforation::before,
+        .ticket-perforation::after {
+            content: ''; position: absolute; top: -12px;
+            width: 22px; height: 22px; border-radius: 50%;
+            background: #080c14;
+        }
+        .ticket-perforation::before { left: -12px; }
+        .ticket-perforation::after  { right: -12px; }
+        .ticket-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 5px 0; font-size: .83rem;
+        }
+        .ticket-row .tk { color: #64748b; }
+        .ticket-row .tv { font-weight: 700; }
+        .ticket-qr { text-align: center; margin: 16px 0 8px; }
+        #qrcode canvas, #qrcode img { border-radius: 8px; }
+        .ticket-footer {
+            background: #f8fafc; border-top: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            display: flex; gap: 10px;
+        }
+        .btn-print {
+            flex: 1; background: #0f172a; color: #fff; border: none;
+            border-radius: 8px; padding: 10px; font-weight: 700; cursor: pointer;
+        }
+        .btn-close-ticket {
+            flex: 1; background: #e2e8f0; color: #1e293b; border: none;
+            border-radius: 8px; padding: 10px; font-weight: 700; cursor: pointer;
+        }
+        @media print {
+            body > *:not(.ticket-modal-overlay) { display: none !important; }
+            .ticket-modal-overlay { position: static; background: none; display: block !important; }
+            .ticket-footer { display: none; }
+        }
+
+        /* ── Movie cards ── */
+        .movie-card {
+            background: #111827; border: 1px solid #1e293b; border-radius: 12px;
+            padding: 18px; cursor: pointer; transition: border-color .2s, transform .15s;
+        }
+        .movie-card:hover { border-color: #38bdf8; transform: translateY(-2px); }
+        .movie-card.selected-movie { border-color: #38bdf8; background: #0f2444; }
+        .movie-genre-badge { background: #1e293b; color: #94a3b8; font-size: .7rem;
+                              border-radius: 20px; padding: 2px 10px; }
+
+        /* ── Misc ── */
+        .form-control-dark {
+            background: #1e293b; border: 1px solid #334155; color: #f1f5f9;
+            border-radius: 8px; padding: 10px 14px; width: 100%; font-size: .9rem;
+        }
+        .form-control-dark:focus { outline: none; border-color: #38bdf8; }
+        .form-control-dark::placeholder { color: #475569; }
+        select.form-control-dark option { background: #1e293b; }
+        .alert-inline {
+            border-radius: 8px; padding: 10px 14px; font-size: .85rem; margin-bottom: 14px;
+        }
+        .step-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; }
     </style>
 </head>
-<body class="p-4">
-<div class="container">
-    <div class="mb-3">
-        <h1 class="text-warning">🍿 SilverScreen Cinemas</h1>
-    </div>
+<body>
 
-    <div class="hero text-center text-white">
-        <h2>Book Tickets & Reserve Your Parking Instantly</h2>
-        <p class="text-secondary">Seamless movie reservation experience</p>
-    </div>
-
-    <!-- Movies List -->
-    <h3 class="mb-3 text-info">🎥 Now Showing</h3>
-    <div class="row mb-4" id="customerMovies"></div>
-
-    <div class="row">
-        <!-- Ticket Booking -->
-        <div class="col-md-6 mb-4">
-            <div class="card p-4">
-                <h4 class="text-primary">🎟️ Book Movie Tickets</h4>
-                <form id="custBookingForm" onsubmit="submitCustomerBooking(event)">
-                    <div class="mb-3"><label>Your Name</label><input type="text" id="cb_name" class="form-control" required placeholder="Enter full name"></div>
-                    <div class="mb-3"><label>Select Movie</label><select id="cb_movie" class="form-select" required></select></div>
-                    <div class="mb-3"><label>Hall & Show</label><input type="text" id="cb_hall" class="form-control" value="Hall 1 (IMAX)" required></div>
-                    <div class="mb-3"><label>Seat Numbers</label><input type="text" id="cb_seats" class="form-control" placeholder="e.g. A4, A5" required></div>
-                    <div class="mb-3"><label>Total Amount ($)</label><input type="number" id="cb_total" class="form-control" value="25.00" required></div>
-                    <button type="submit" class="btn btn-primary w-100">Confirm Ticket Booking</button>
-                </form>
+<!-- ═══════════════════ HERO ═══════════════════ -->
+<div class="hero">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1 style="font-size:1.9rem;font-weight:800;color:#f59e0b;margin-bottom:4px;">
+                    🍿 SilverScreen Cinemas
+                </h1>
+                <p style="color:#94a3b8;margin:0;font-size:.9rem;">The premium movie-going experience</p>
             </div>
-        </div>
-
-        <!-- Parking Reservation -->
-        <div class="col-md-6 mb-4">
-            <div class="card p-4">
-                <h4 class="text-success">🅿️ Reserve Parking Ahead</h4>
-                <p class="small text-secondary">Pick an available parking spot for your screening.</p>
-                <form id="custParkingForm" onsubmit="submitCustomerParking(event)">
-                    <div class="mb-3">
-                        <label>Available Slots</label>
-                        <select id="cp_slot" class="form-select" required></select>
-                    </div>
-                    <div class="mb-3"><label>Vehicle Number Plate</label><input type="text" id="cp_veh" class="form-control" placeholder="e.g. WP-CAD-1024" required></div>
-                    <button type="submit" class="btn btn-success w-100">Reserve Parking Spot</button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Food & Promotions -->
-    <div class="row">
-        <div class="col-md-6 mb-4">
-            <div class="card p-4">
-                <h4 class="text-warning">🍿 Snacks & Beverages</h4>
-                <ul class="list-group list-group-flush" id="foodList"></ul>
-            </div>
-        </div>
-        <div class="col-md-6 mb-4">
-            <div class="card p-4">
-                <h4 class="text-danger">🏷️ Available Discount Codes</h4>
-                <ul class="list-group list-group-flush" id="promoList"></ul>
-            </div>
+            <a href="/admin.html" class="btn btn-outline-secondary btn-sm">Staff Portal →</a>
         </div>
     </div>
 </div>
 
-<script>
-    async function initCustomerPage() {
-        // Load Movies
-        const mRes = await fetch('/api/movies');
-        const movies = await mRes.json();
-        document.getElementById('customerMovies').innerHTML = movies.length ? movies.map(m => `
-                <div class="col-md-4 mb-3">
-                    <div class="card p-3">
-                        <h5>${m.title}</h5>
-                        <p class="text-secondary mb-1">Genre: ${m.genre} | ${m.durationMinutes} mins</p>
-                        <p class="mb-1"><strong>Showtime:</strong> ${m.showtime}</p>
-                        <p class="text-warning"><strong>$${m.ticketPrice}</strong></p>
-                    </div>
+<!-- ═══════════════════ PROGRESS BAR ═══════════════════ -->
+<div class="checkout-steps" id="stepsBar">
+    <div class="step-pill active" id="spill1"><span class="num">1</span>Movie & Details</div>
+    <div class="step-pill"        id="spill2"><span class="num">2</span>Choose Seats</div>
+    <div class="step-pill"        id="spill3"><span class="num">3</span>Extras & Promo</div>
+    <div class="step-pill"        id="spill4"><span class="num">4</span>Review & Pay</div>
+</div>
+
+<div class="container py-4" style="max-width:900px;">
+
+    <!-- ══════════════ STEP 1 — Customer & Movie ══════════════ -->
+    <div id="step1">
+        <div class="checkout-card mb-4">
+            <div class="section-title">👤 Your Details</div>
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <label class="form-label" style="color:#94a3b8;font-size:.82rem;font-weight:600;">Full Name *</label>
+                    <input type="text" id="cb_name" class="form-control-dark" placeholder="Enter your name" required>
                 </div>
-            `).join('') : '<div class="col-12 text-secondary">No movies listed yet. Add them in the Admin portal!</div>';
+                <div class="col-sm-6">
+                    <label class="form-label" style="color:#94a3b8;font-size:.82rem;font-weight:600;">Cinema Hall *</label>
+                    <select id="cb_hall" class="form-control-dark">
+                        <option value="" disabled selected>Loading halls…</option>
+                    </select>
+                </div>
+            </div>
+        </div>
 
-        document.getElementById('cb_movie').innerHTML = movies.map(m => `<option value="${m.title}">${m.title} ($${m.ticketPrice})</option>`).join('');
+        <div class="checkout-card">
+            <div class="section-title">🎥 Now Showing — Pick a Movie</div>
+            <div id="movieGrid" class="row g-3">
+                <div class="col-12 text-secondary" style="font-size:.88rem;">Loading movies…</div>
+            </div>
+            <div id="step1Error" class="alert-inline mt-3" style="background:#450a0a;color:#fca5a5;display:none;"></div>
+            <div class="step-nav">
+                <div></div>
+                <button class="btn-next" onclick="goStep2()">Choose Seats →</button>
+            </div>
+        </div>
+    </div>
 
-        // Load Parking Slots (Available only)
-        const pRes = await fetch('/api/parking-slots/available');
-        const slots = await pRes.json();
-        document.getElementById('cp_slot').innerHTML = slots.length ? slots.map(s => `
-                <option value="${s.id}">${s.slotNumber} (${s.slotType})</option>
-            `).join('') : '<option disabled>No available slots</option>';
+    <!-- ══════════════ STEP 2 — Seat Selection ══════════════ -->
+    <div id="step2" class="d-none">
+        <div class="checkout-card mb-4">
+            <div class="section-title">🎭 Select Your Seats</div>
+            <div class="screen-wrap">
+                <div class="screen-bar"></div>
+                <div class="screen-label">▲ Screen ▲</div>
+            </div>
+            <div class="seat-grid" id="seatGrid"></div>
+            <div class="seat-legend">
+                <span><span class="legend-dot" style="background:#166534;"></span>Available</span>
+                <span><span class="legend-dot" style="background:#f59e0b;"></span>Selected</span>
+                <span><span class="legend-dot" style="background:#7f1d1d;"></span>Reserved</span>
+            </div>
+            <div id="step2Error" class="alert-inline mt-3" style="background:#450a0a;color:#fca5a5;display:none;"></div>
+        </div>
+        <div class="total-bar mb-3">
+            <div>
+                <div class="total-label">Ticket Subtotal</div>
+                <div style="font-size:.8rem;color:#64748b;" id="seatInfo">0 seats selected</div>
+            </div>
+            <div class="total-amount" id="ticketSubtotal">$0.00</div>
+        </div>
+        <div class="step-nav">
+            <button class="btn-back" onclick="goStep(1)">← Back</button>
+            <button class="btn-next" onclick="goStep3()">Add Extras →</button>
+        </div>
+    </div>
 
-        // Load Food
-        const fRes = await fetch('/api/food-items');
-        const foods = await fRes.json();
-        document.getElementById('foodList').innerHTML = foods.map(f => `
-                <li class="list-group-item bg-transparent text-white d-flex justify-content-between">
-                    <span>${f.itemName} (${f.category})</span><strong>$${f.price}</strong>
-                </li>
-            `).join('');
+    <!-- ══════════════ STEP 3 — Parking + Concessions + Promo ══════════════ -->
+    <div id="step3" class="d-none">
+        <!-- Parking -->
+        <div class="checkout-card mb-4">
+            <div class="section-title">🅿️ Reserve a Parking Bay <span style="font-size:.72rem;color:#475569;font-weight:400;">(optional)</span></div>
+            <div class="parking-grid mb-3" id="parkingGrid">
+                <div class="text-secondary" style="font-size:.82rem;">Loading bays…</div>
+            </div>
+            <div id="parkingSelectedBadge" style="display:none;margin-top:10px;">
+                <span style="font-size:.82rem;color:#94a3b8;">Selected: </span>
+                <span class="parking-badge" id="parkingBadgeText"></span>
+            </div>
+            <div class="mt-3">
+                <label style="color:#94a3b8;font-size:.82rem;font-weight:600;">Vehicle Number Plate</label>
+                <input type="text" id="cb_vehicle" class="form-control-dark mt-1" placeholder="e.g. WP-CAD-1024">
+            </div>
+        </div>
 
-        // Load Promotions
-        const prRes = await fetch('/api/promotions');
-        const promos = await prRes.json();
-        document.getElementById('promoList').innerHTML = promos.map(p => `
-                <li class="list-group-item bg-transparent text-white d-flex justify-content-between">
-                    <span class="badge bg-danger">${p.promoCode}</span><span>${p.description} (${p.discountPercentage}% OFF)</span>
-                </li>
-            `).join('');
+        <!-- Concessions -->
+        <div class="checkout-card mb-4">
+            <div class="section-title">🍿 Snacks & Beverages</div>
+            <div class="concession-grid" id="concessionGrid">
+                <div class="text-secondary" style="font-size:.82rem;">Loading menu…</div>
+            </div>
+        </div>
+
+        <!-- Promo -->
+        <div class="checkout-card mb-4">
+            <div class="section-title">🏷️ Promo Code</div>
+            <div class="promo-wrap">
+                <input type="text" id="promoInput" class="promo-input" placeholder="Enter promo code…" oninput="clearPromo()">
+                <button class="promo-apply" onclick="applyPromo()">Apply</button>
+            </div>
+            <div id="promoFeedback"></div>
+        </div>
+
+        <div class="total-bar mb-3">
+            <div>
+                <div class="total-label">Grand Total</div>
+                <div style="font-size:.78rem;color:#64748b;" id="totalBreakdown">Tickets + Snacks − Discount</div>
+            </div>
+            <div class="total-amount" id="grandTotal">$0.00</div>
+        </div>
+        <div class="step-nav">
+            <button class="btn-back" onclick="goStep(2)">← Back</button>
+            <button class="btn-next" onclick="goStep4()">Review Order →</button>
+        </div>
+    </div>
+
+    <!-- ══════════════ STEP 4 — Review & Confirm ══════════════ -->
+    <div id="step4" class="d-none">
+        <div class="checkout-card mb-4">
+            <div class="section-title">📋 Order Summary</div>
+            <div id="reviewContent"></div>
+        </div>
+        <div class="total-bar mb-4">
+            <div>
+                <div class="total-label">Total Charged</div>
+            </div>
+            <div class="total-amount" id="finalTotal">$0.00</div>
+        </div>
+        <div id="confirmError" class="alert-inline" style="background:#450a0a;color:#fca5a5;display:none;"></div>
+        <button class="btn-confirm" onclick="confirmBooking()">🎟️ Confirm &amp; Get My Ticket</button>
+        <div style="text-align:center;margin-top:12px;">
+            <button class="btn-back" onclick="goStep(3)">← Back</button>
+        </div>
+    </div>
+
+</div><!-- /container -->
+
+<!-- ═══════════════════ DIGITAL TICKET MODAL ═══════════════════ -->
+<div class="ticket-modal-overlay" id="ticketModal">
+    <div class="ticket-wrap">
+        <div class="ticket-header">
+            <div class="ticket-cinema">🍿 SilverScreen Cinemas</div>
+            <div class="ticket-movie" id="tk_movie">—</div>
+            <div style="font-size:.78rem;color:#94a3b8;" id="tk_hall">—</div>
+        </div>
+        <div class="ticket-body">
+            <div class="ticket-row">
+                <span class="tk">Customer</span>
+                <span class="tv" id="tk_name">—</span>
+            </div>
+            <div class="ticket-row">
+                <span class="tk">Seats</span>
+                <span class="tv" id="tk_seats">—</span>
+            </div>
+            <div class="ticket-row" id="tk_parkingRow">
+                <span class="tk">Parking Bay</span>
+                <span class="tv"><span class="parking-badge" id="tk_parking">—</span></span>
+            </div>
+            <div class="ticket-row" id="tk_snacksRow">
+                <span class="tk">Snacks</span>
+                <span class="tv" id="tk_snacks">—</span>
+            </div>
+            <div class="ticket-row">
+                <span class="tk">Total Paid</span>
+                <span class="tv" style="color:#f59e0b;" id="tk_total">—</span>
+            </div>
+            <div class="ticket-row">
+                <span class="tk">Booking ID</span>
+                <span class="tv" style="font-family:monospace;" id="tk_id">—</span>
+            </div>
+            <div class="ticket-perforation"></div>
+            <div class="ticket-qr">
+                <div id="qrcode"></div>
+                <div style="font-size:.68rem;color:#94a3b8;margin-top:6px;">Scan at entry</div>
+            </div>
+        </div>
+        <div class="ticket-footer">
+            <button class="btn-print" onclick="window.print()">🖨️ Print Ticket</button>
+            <button class="btn-close-ticket" onclick="closeTicket()">Close</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════ */
+const state = {
+    currentStep: 1,
+    customerName: '',
+    selectedMovie: null,   // { id, title, ticketPrice, ... }
+    hallName: '',
+    selectedSeats: [],     // e.g. ['A1','B3']
+    reservedSeats: [],     // from existing bookings
+    ticketPrice: 0,
+
+    selectedParkingSlot: null, // { id, slotNumber }
+    vehicleNumber: '',
+
+    snackQtys: {},         // { foodId: qty }
+    foodItems: [],         // full list from API
+
+    appliedPromo: null,    // { promoCode, discountPercentage }
+    discountAmount: 0,
+
+    bookingId: null,
+};
+
+/* ═══════════════════════════════════════════════
+   STEP NAVIGATION
+═══════════════════════════════════════════════ */
+function goStep(n) {
+    [1,2,3,4].forEach(i => {
+        document.getElementById(`step${i}`).classList.toggle('d-none', i !== n);
+        const pill = document.getElementById(`spill${i}`);
+        pill.classList.remove('active','done');
+        if (i === n) pill.classList.add('active');
+        else if (i < n) pill.classList.add('done');
+    });
+    state.currentStep = n;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showError(elId, msg) {
+    const el = document.getElementById(elId);
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+/* ═══════════════════════════════════════════════
+   STEP 1 → 2  (validate & build seat grid)
+═══════════════════════════════════════════════ */
+function goStep2() {
+    state.customerName = document.getElementById('cb_name').value.trim();
+    state.hallName = document.getElementById('cb_hall').value;
+    if (!state.customerName) { showError('step1Error','Please enter your name.'); return; }
+    if (!state.selectedMovie) { showError('step1Error','Please select a movie.'); return; }
+    if (!state.hallName)      { showError('step1Error','Please select a cinema hall.'); return; }
+    buildSeatGrid();
+    goStep(2);
+}
+
+/* ═══════════════════════════════════════════════
+   STEP 2 → 3
+═══════════════════════════════════════════════ */
+function goStep3() {
+    if (state.selectedSeats.length === 0) {
+        showError('step2Error','Please select at least one seat.'); return;
+    }
+    buildParkingGrid();
+    updateGrandTotal();
+    goStep(3);
+}
+
+/* ═══════════════════════════════════════════════
+   STEP 3 → 4
+═══════════════════════════════════════════════ */
+function goStep4() {
+    state.vehicleNumber = document.getElementById('cb_vehicle').value.trim();
+    buildReviewPanel();
+    document.getElementById('finalTotal').textContent = document.getElementById('grandTotal').textContent;
+    goStep(4);
+}
+
+/* ═══════════════════════════════════════════════
+   INIT — load movies & halls in parallel
+═══════════════════════════════════════════════ */
+async function init() {
+    const [movRes, hallRes, bookRes] = await Promise.all([
+        fetch('/api/movies').then(r => r.json()).catch(() => []),
+        fetch('/api/halls').then(r => r.json()).catch(() => []),
+        fetch('/api/bookings').then(r => r.json()).catch(() => []),
+    ]);
+
+    // ── Movie grid ──
+    const movieGrid = document.getElementById('movieGrid');
+    if (!movRes.length) {
+        movieGrid.innerHTML = '<div class="col-12 text-secondary">No movies available. Add them in the Admin portal.</div>';
+    } else {
+        const icons = ['🎬','🎭','🚀','🧨','🌊','🔥','💥','🕵️'];
+        movieGrid.innerHTML = movRes.map((m, i) => `
+            <div class="col-sm-6 col-md-4">
+                <div class="movie-card" id="mc_${m.id}" onclick="selectMovie(${JSON.stringify(m).replace(/"/g,'&quot;')})">
+                    <div style="font-size:2rem;margin-bottom:8px;">${icons[i % icons.length]}</div>
+                    <div style="font-weight:700;margin-bottom:4px;">${m.title}</div>
+                    <div class="mb-2">
+                        <span class="movie-genre-badge">${m.genre}</span>
+                        <span class="movie-genre-badge ms-1">${m.durationMinutes} min</span>
+                    </div>
+                    <div style="font-size:.8rem;color:#64748b;">🕐 ${m.showtime}</div>
+                    <div style="font-size:1rem;font-weight:800;color:#f59e0b;margin-top:8px;">$${Number(m.ticketPrice).toFixed(2)}</div>
+                </div>
+            </div>
+        `).join('');
     }
 
-    async function submitCustomerBooking(e) {
-        e.preventDefault();
-        const body = {
-            customerName: document.getElementById('cb_name').value,
-            movieTitle: document.getElementById('cb_movie').value,
-            hallName: document.getElementById('cb_hall').value,
-            seatNumbers: document.getElementById('cb_seats').value,
-            totalAmount: document.getElementById('cb_total').value,
-            status: 'CONFIRMED'
-        };
-        await fetch('/api/bookings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
-        alert('Booking Successful!');
-        document.getElementById('custBookingForm').reset();
-    }
+    // ── Hall selector ──
+    const hallSel = document.getElementById('cb_hall');
+    hallSel.innerHTML = hallRes.length
+        ? hallRes.map(h => `<option value="${h.hallName}">${h.hallName} (${h.hallType})</option>`).join('')
+        : '<option value="Hall 1 (IMAX)">Hall 1 (IMAX)</option>';
 
-    async function submitCustomerParking(e) {
-        e.preventDefault();
-        const slotId = document.getElementById('cp_slot').value;
-        const vehicle = document.getElementById('cp_veh').value;
-        if (!slotId) return alert('No slot selected!');
+    // ── Collect reserved seats from bookings ──
+    state.reservedSeats = [];
+    bookRes.forEach(b => {
+        if (b.seatNumbers) {
+            b.seatNumbers.split(',').forEach(s => {
+                const clean = s.trim().toUpperCase();
+                if (clean) state.reservedSeats.push(clean);
+            });
+        }
+    });
 
-        await fetch(`/api/parking-slots/${slotId}`, {
-            method: 'PUT',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ vehicleNumber: vehicle, status: 'RESERVED' })
+    // ── Load food items ──
+    state.foodItems = await fetch('/api/food-items').then(r => r.json()).catch(() => []);
+    buildConcessionGrid();
+}
+
+/* ═══════════════════════════════════════════════
+   SELECT MOVIE
+═══════════════════════════════════════════════ */
+function selectMovie(m) {
+    // Clear previous selection
+    document.querySelectorAll('.movie-card').forEach(c => c.classList.remove('selected-movie'));
+    document.getElementById(`mc_${m.id}`)?.classList.add('selected-movie');
+    state.selectedMovie = m;
+    state.ticketPrice = Number(m.ticketPrice);
+    updateTicketSubtotal();
+}
+
+/* ═══════════════════════════════════════════════
+   SEAT GRID
+═══════════════════════════════════════════════ */
+function buildSeatGrid() {
+    const grid = document.getElementById('seatGrid');
+    const rows = ['A','B','C','D'];
+    const cols = [1,2,3,4,5,6];
+    let html = '';
+    rows.forEach(row => {
+        html += `<div class="row-label">${row}</div>`;
+        cols.forEach(col => {
+            const seatId = `${row}${col}`;
+            const isReserved = state.reservedSeats.includes(seatId);
+            const isSelected = state.selectedSeats.includes(seatId);
+            const cls = isReserved ? 'reserved' : (isSelected ? 'selected' : 'available');
+            html += `<button class="seat-btn ${cls}" id="seat_${seatId}"
+                       ${isReserved ? 'disabled' : `onclick="toggleSeat('${seatId}')"`}
+                       title="${seatId}">${seatId}</button>`;
         });
-        alert('Parking Reserved Successfully!');
-        initCustomerPage();
+    });
+    grid.innerHTML = html;
+    updateTicketSubtotal();
+}
+
+function toggleSeat(seatId) {
+    const idx = state.selectedSeats.indexOf(seatId);
+    const btn = document.getElementById(`seat_${seatId}`);
+    if (idx === -1) {
+        state.selectedSeats.push(seatId);
+        btn.classList.remove('available');
+        btn.classList.add('selected');
+    } else {
+        state.selectedSeats.splice(idx, 1);
+        btn.classList.remove('selected');
+        btn.classList.add('available');
+    }
+    updateTicketSubtotal();
+}
+
+function updateTicketSubtotal() {
+    const count = state.selectedSeats.length;
+    const sub   = count * state.ticketPrice;
+    document.getElementById('seatInfo').textContent = `${count} seat${count !== 1 ? 's' : ''} selected`;
+    document.getElementById('ticketSubtotal').textContent = `$${sub.toFixed(2)}`;
+}
+
+/* ═══════════════════════════════════════════════
+   PARKING GRID
+═══════════════════════════════════════════════ */
+let parkingSlots = [];
+async function buildParkingGrid() {
+    const grid = document.getElementById('parkingGrid');
+    try {
+        parkingSlots = await fetch('/api/parking-slots').then(r => r.json());
+    } catch { parkingSlots = []; }
+
+    if (!parkingSlots.length) {
+        grid.innerHTML = '<div class="text-secondary" style="font-size:.82rem;">No parking bays configured yet.</div>';
+        return;
+    }
+    grid.innerHTML = parkingSlots.map(s => {
+        const isRes   = s.status !== 'AVAILABLE';
+        const isSel   = state.selectedParkingSlot?.id === s.id;
+        const cls     = isRes ? 'reserved' : (isSel ? 'selected' : 'available');
+        return `<div class="bay-btn ${cls}" id="bay_${s.id}"
+                     ${isRes ? '' : `onclick="selectBay(${s.id})"`}>
+                    <span class="bay-icon">${isRes ? '🚫' : '🚗'}</span>
+                    ${s.slotNumber}<br>
+                    <span style="font-size:.65rem;opacity:.7;">${s.slotType}</span>
+                </div>`;
+    }).join('');
+}
+
+function selectBay(id) {
+    // Deselect previous
+    if (state.selectedParkingSlot) {
+        document.getElementById(`bay_${state.selectedParkingSlot.id}`)?.classList.replace('selected','available');
+    }
+    const slot = parkingSlots.find(s => s.id === id);
+    if (!slot) return;
+    // Toggle off if clicking same bay again
+    if (state.selectedParkingSlot?.id === id) {
+        state.selectedParkingSlot = null;
+        document.getElementById('parkingSelectedBadge').style.display = 'none';
+        return;
+    }
+    state.selectedParkingSlot = slot;
+    document.getElementById(`bay_${id}`)?.classList.replace('available','selected');
+    document.getElementById(`bay_${id}`)?.querySelector('.bay-icon') && (document.getElementById(`bay_${id}`).querySelector('.bay-icon').textContent = '✅');
+    document.getElementById('parkingBadgeText').textContent = slot.slotNumber;
+    document.getElementById('parkingSelectedBadge').style.display = 'block';
+    updateGrandTotal();
+}
+
+/* ═══════════════════════════════════════════════
+   CONCESSION CARDS
+═══════════════════════════════════════════════ */
+const snackIcons = { Popcorn:'🍿', Beverage:'🥤', Snack:'🍫', Default:'🛒' };
+
+function buildConcessionGrid() {
+    const grid = document.getElementById('concessionGrid');
+    if (!state.foodItems.length) {
+        grid.innerHTML = '<div class="text-secondary" style="font-size:.82rem;">No items on the menu yet.</div>';
+        return;
+    }
+    grid.innerHTML = state.foodItems.filter(f => f.isAvailable !== false).map(f => {
+        const icon = snackIcons[f.category] || snackIcons.Default;
+        return `
+        <div class="snack-card" id="sc_${f.id}">
+            <div class="snack-icon">${icon}</div>
+            <div class="snack-name">${f.itemName}</div>
+            <div class="snack-price">$${Number(f.price).toFixed(2)}</div>
+            <div class="qty-ctrl">
+                <button class="qty-btn minus" onclick="changeQty(${f.id}, -1, ${f.price})">−</button>
+                <span class="qty-display" id="qty_${f.id}">0</span>
+                <button class="qty-btn plus"  onclick="changeQty(${f.id}, +1, ${f.price})">+</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function changeQty(foodId, delta, price) {
+    const cur = state.snackQtys[foodId] || 0;
+    const next = Math.max(0, cur + delta);
+    state.snackQtys[foodId] = next;
+    document.getElementById(`qty_${foodId}`).textContent = next;
+    document.getElementById(`sc_${foodId}`)?.classList.toggle('has-items', next > 0);
+    updateGrandTotal();
+}
+
+/* ═══════════════════════════════════════════════
+   PROMO ENGINE
+═══════════════════════════════════════════════ */
+function clearPromo() {
+    if (state.appliedPromo) {
+        state.appliedPromo = null;
+        state.discountAmount = 0;
+        document.getElementById('promoFeedback').innerHTML = '';
+        updateGrandTotal();
+    }
+}
+
+async function applyPromo() {
+    const code = document.getElementById('promoInput').value.trim();
+    if (!code) return;
+    const fb = document.getElementById('promoFeedback');
+    fb.innerHTML = '<span style="color:#94a3b8;">Validating…</span>';
+    try {
+        const res = await fetch(`/api/promotions/validate?code=${encodeURIComponent(code)}`);
+        if (res.ok) {
+            const promo = await res.json();
+            state.appliedPromo = promo;
+            updateGrandTotal();
+            fb.innerHTML = `<span style="background:#14532d;color:#86efac;border-radius:6px;padding:4px 12px;font-weight:700;">
+                ✅ ${promo.promoCode} — ${promo.discountPercentage}% OFF applied!
+            </span>`;
+        } else {
+            state.appliedPromo = null;
+            state.discountAmount = 0;
+            updateGrandTotal();
+            fb.innerHTML = '<span style="color:#fca5a5;">❌ Invalid or expired promo code.</span>';
+        }
+    } catch {
+        fb.innerHTML = '<span style="color:#fca5a5;">❌ Could not validate promo. Try again.</span>';
+    }
+}
+
+/* ═══════════════════════════════════════════════
+   GRAND TOTAL CALCULATOR
+═══════════════════════════════════════════════ */
+function getSnackSubtotal() {
+    return state.foodItems.reduce((sum, f) => {
+        return sum + (state.snackQtys[f.id] || 0) * Number(f.price);
+    }, 0);
+}
+
+function updateGrandTotal() {
+    const ticketSub  = state.selectedSeats.length * state.ticketPrice;
+    const snackSub   = getSnackSubtotal();
+    const subtotal   = ticketSub + snackSub;
+    state.discountAmount = state.appliedPromo
+        ? subtotal * (state.appliedPromo.discountPercentage / 100)
+        : 0;
+    const grand = Math.max(0, subtotal - state.discountAmount);
+
+    document.getElementById('grandTotal').textContent = `$${grand.toFixed(2)}`;
+    document.getElementById('totalBreakdown').textContent =
+        `Tickets $${ticketSub.toFixed(2)} + Snacks $${snackSub.toFixed(2)}` +
+        (state.appliedPromo ? ` − Promo $${state.discountAmount.toFixed(2)}` : '');
+}
+
+/* ═══════════════════════════════════════════════
+   REVIEW PANEL
+═══════════════════════════════════════════════ */
+function buildReviewPanel() {
+    const ticketSub = state.selectedSeats.length * state.ticketPrice;
+    const snackSub  = getSnackSubtotal();
+    const snackList = state.foodItems
+        .filter(f => (state.snackQtys[f.id] || 0) > 0)
+        .map(f => `${f.itemName} ×${state.snackQtys[f.id]}`);
+
+    let html = `
+        <div class="summary-row">
+            <span class="summary-key">Name</span>
+            <span class="summary-val">${state.customerName}</span>
+        </div>
+        <div class="summary-row">
+            <span class="summary-key">Movie</span>
+            <span class="summary-val">${state.selectedMovie?.title}</span>
+        </div>
+        <div class="summary-row">
+            <span class="summary-key">Hall</span>
+            <span class="summary-val">${state.hallName}</span>
+        </div>
+        <div class="summary-row">
+            <span class="summary-key">Seats (×${state.selectedSeats.length})</span>
+            <span class="summary-val">
+                ${state.selectedSeats.map(s => `<span class="seat-chip">${s}</span>`).join('')}
+                <br><span style="color:#f59e0b;font-size:.85rem;">$${ticketSub.toFixed(2)}</span>
+            </span>
+        </div>`;
+
+    if (state.selectedParkingSlot) {
+        html += `
+        <div class="summary-row">
+            <span class="summary-key">Parking Bay</span>
+            <span class="summary-val">
+                <span class="parking-badge">${state.selectedParkingSlot.slotNumber}</span>
+                ${state.vehicleNumber ? `<br><span style="font-size:.78rem;color:#64748b;">${state.vehicleNumber}</span>` : ''}
+            </span>
+        </div>`;
     }
 
-    initCustomerPage();
+    if (snackList.length) {
+        html += `
+        <div class="summary-row">
+            <span class="summary-key">Snacks</span>
+            <span class="summary-val">${snackList.join(', ')}<br>
+                <span style="color:#f59e0b;font-size:.85rem;">$${snackSub.toFixed(2)}</span>
+            </span>
+        </div>`;
+    }
+
+    if (state.appliedPromo) {
+        html += `
+        <div class="summary-row">
+            <span class="summary-key">Promo (${state.appliedPromo.promoCode})</span>
+            <span class="summary-val" style="color:#22c55e;">−$${state.discountAmount.toFixed(2)}</span>
+        </div>`;
+    }
+
+    document.getElementById('reviewContent').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════
+   CONFIRM BOOKING → POST
+═══════════════════════════════════════════════ */
+async function confirmBooking() {
+    const ticketSub = state.selectedSeats.length * state.ticketPrice;
+    const snackSub  = getSnackSubtotal();
+    const grand     = Math.max(0, ticketSub + snackSub - state.discountAmount);
+
+    const snackPayload = state.foodItems
+        .filter(f => (state.snackQtys[f.id] || 0) > 0)
+        .map(f => ({ name: f.itemName, qty: state.snackQtys[f.id], price: f.price }));
+
+    const body = {
+        customerName:  state.customerName,
+        movieTitle:    state.selectedMovie.title,
+        hallName:      state.hallName,
+        seatNumbers:   state.selectedSeats.join(', '),
+        totalAmount:   grand,
+        status:        'CONFIRMED',
+        parkingSlotId: state.selectedParkingSlot?.id ?? null,
+        orderedSnacks: snackPayload.length ? JSON.stringify(snackPayload) : null,
+        discountAmount: state.discountAmount,
+    };
+
+    const confirmBtn = document.querySelector('.btn-confirm');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Processing…';
+
+    try {
+        const res  = await fetch('/api/bookings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        const saved = await res.json();
+        state.bookingId = saved.id;
+        openTicketModal(saved, grand, snackPayload);
+    } catch (err) {
+        document.getElementById('confirmError').textContent = `Booking failed: ${err.message}`;
+        document.getElementById('confirmError').style.display = 'block';
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '🎟️ Confirm & Get My Ticket';
+    }
+}
+
+/* ═══════════════════════════════════════════════
+   DIGITAL TICKET MODAL
+═══════════════════════════════════════════════ */
+function openTicketModal(booking, grand, snacks) {
+    const seatsText = state.selectedSeats.map(s =>
+        `<span class="seat-chip">${s}</span>`).join(' ');
+
+    document.getElementById('tk_movie').textContent  = booking.movieTitle;
+    document.getElementById('tk_hall').textContent   = booking.hallName;
+    document.getElementById('tk_name').textContent   = booking.customerName;
+    document.getElementById('tk_seats').innerHTML    = seatsText;
+    document.getElementById('tk_total').textContent  = `$${grand.toFixed(2)}`;
+    document.getElementById('tk_id').textContent     = `#${String(booking.id).padStart(6,'0')}`;
+
+    // Parking badge
+    if (state.selectedParkingSlot) {
+        document.getElementById('tk_parking').textContent = state.selectedParkingSlot.slotNumber;
+        document.getElementById('tk_parkingRow').style.display = '';
+    } else {
+        document.getElementById('tk_parkingRow').style.display = 'none';
+    }
+
+    // Snacks
+    if (snacks.length) {
+        document.getElementById('tk_snacks').textContent = snacks.map(s => `${s.name}×${s.qty}`).join(', ');
+        document.getElementById('tk_snacksRow').style.display = '';
+    } else {
+        document.getElementById('tk_snacksRow').style.display = 'none';
+    }
+
+    // Generate QR code
+    const qrContainer = document.getElementById('qrcode');
+    qrContainer.innerHTML = '';
+    const qrData = `SILVERSCREEN | ID:#${booking.id} | ${booking.movieTitle} | Seats:${booking.seatNumbers} | $${grand.toFixed(2)}`;
+    new QRCode(qrContainer, {
+        text: qrData,
+        width: 160, height: 160,
+        colorDark: '#0f172a',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M,
+    });
+
+    document.getElementById('ticketModal').classList.add('show');
+}
+
+function closeTicket() {
+    document.getElementById('ticketModal').classList.remove('show');
+    // Reset the whole flow for a fresh booking
+    location.reload();
+}
+
+/* ═══════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════ */
+init();
 </script>
 </body>
 </html>
