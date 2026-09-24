@@ -2,10 +2,12 @@ package com.example.movie_reservation.controller;
 
 import com.example.movie_reservation.model.Booking;
 import com.example.movie_reservation.service.BookingService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -30,9 +32,20 @@ public class BookingController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Creates a new booking.
+     * Returns HTTP 400 with an error message if hall validation fails in BookingService.
+     */
     @PostMapping
-    public Booking create(@RequestBody Booking booking) {
-        return bookingService.processBooking(booking);
+    public ResponseEntity<?> create(@RequestBody Booking booking) {
+        try {
+            Booking saved = bookingService.processBooking(booking);
+            return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", ex.getMessage()));
+        }
     }
 
     @PutMapping("/{id}")

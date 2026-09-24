@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Ticketing & Bookings — SilverScreen</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/sidebar.css" rel="stylesheet">
+</head>
+<body style="background:#0d1117;color:#e6edf3;margin:0;">
+<div class="ss-page-title">🎟️ Ticketing & Bookings</div>
+
+<div class="ss-card">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+        <input type="text" class="ss-search" id="searchInput" placeholder="🔍  Search customer, movie, hall, seats…" oninput="filterTable()">
+        <span id="bookingCount" style="font-size:.8rem;color:#64748b;"></span>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="table ss-table" id="bookingTable">
+            <thead><tr>
+                <th>ID</th><th>Customer</th><th>Movie</th><th>Hall</th>
+                <th>Seats</th><th>Parking</th><th>Snacks</th><th>Discount</th>
+                <th>Total</th><th>Status</th><th>Action</th>
+            </tr></thead>
+            <tbody id="bookingBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+const user = requireAuth();
+injectSidebar(user);
+
+let allBookings = [];
+
+async function loadBookings() {
+    allBookings = await fetch('/api/bookings').then(r=>r.json()).catch(()=>[]);
+    document.getElementById('bookingCount').textContent = `${allBookings.length} booking${allBookings.length!==1?'s':''}`;
+    renderTable(allBookings);
+}
+
+function renderTable(data) {
+    document.getElementById('bookingBody').innerHTML = data.map(b => `
+        <tr>
+            <td style="color:#475569;">#${b.id}</td>
+            <td style="font-weight:600;">${b.customerName}</td>
+            <td>${b.movieTitle}</td>
+            <td>${b.hallName}</td>
+            <td style="font-size:.8rem;">${(b.seatNumbers||'').split(',').map(s=>`<span style="background:#1e3a5f;color:#93c5fd;border-radius:4px;padding:1px 6px;font-size:.7rem;font-weight:700;margin:1px;">${s.trim()}</span>`).join('')}</td>
+            <td>${b.parkingSlotId ? `<span class="badge-active">Slot #${b.parkingSlotId}</span>` : '<span style="color:#475569;">—</span>'}</td>
+            <td style="max-width:120px;font-size:.75rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${b.orderedSnacks||''}">${b.orderedSnacks||'—'}</td>
+            <td>${b.discountAmount ? `<span class="badge-res">-$${Number(b.discountAmount).toFixed(2)}</span>` : '—'}</td>
+            <td style="color:#f59e0b;font-weight:700;">$${Number(b.totalAmount).toFixed(2)}</td>
+            <td><span style="background:#14532d;color:#86efac;border-radius:20px;padding:2px 10px;font-size:.72rem;font-weight:700;">${b.status}</span></td>
+            <td><button class="ss-btn ss-btn-danger ss-btn-sm" onclick="cancelBooking(${b.id})">Cancel</button></td>
+        </tr>`).join('') || '<tr><td colspan="11" class="text-center" style="color:#475569;padding:20px;">No bookings found.</td></tr>';
+}
+
+function filterTable() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = allBookings.filter(b =>
+        (b.customerName||'').toLowerCase().includes(q) ||
+        (b.movieTitle||'').toLowerCase().includes(q)   ||
+        (b.hallName||'').toLowerCase().includes(q)     ||
+        (b.seatNumbers||'').toLowerCase().includes(q)
+    );
+    renderTable(filtered);
+}
+
+async function cancelBooking(id) {
+    if (!confirm('Cancel this booking? The parking bay will be freed.')) return;
+    await fetch(`/api/bookings/${id}`, {method:'DELETE'});
+    loadBookings();
+}
+
+loadBookings();
+</script>
+</body>
+</html>

@@ -2,6 +2,7 @@ package com.example.movie_reservation.service;
 
 import com.example.movie_reservation.model.Booking;
 import com.example.movie_reservation.repository.BookingRepository;
+import com.example.movie_reservation.repository.CinemaHallRepository;
 import com.example.movie_reservation.repository.ParkingSlotRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,10 +15,14 @@ public class BookingService {
 
     private final BookingRepository bookingRepo;
     private final ParkingSlotRepository parkingRepo;
+    private final CinemaHallRepository hallRepo;
 
-    public BookingService(BookingRepository bookingRepo, ParkingSlotRepository parkingRepo) {
+    public BookingService(BookingRepository bookingRepo,
+                          ParkingSlotRepository parkingRepo,
+                          CinemaHallRepository hallRepo) {
         this.bookingRepo = bookingRepo;
         this.parkingRepo = parkingRepo;
+        this.hallRepo    = hallRepo;
     }
 
     public List<Booking> getAllBookings() {
@@ -30,6 +35,17 @@ public class BookingService {
 
     @Transactional
     public Booking processBooking(Booking booking) {
+        // ── Guard: hall must be supplied and must exist in the DB ──
+        if (booking.getHallName() == null || booking.getHallName().isBlank()) {
+            throw new IllegalArgumentException("A valid cinema hall must be selected to complete a booking.");
+        }
+        boolean hallExists = hallRepo.findAll().stream()
+                .anyMatch(h -> h.getHallName().equalsIgnoreCase(booking.getHallName().trim()));
+        if (!hallExists) {
+            throw new IllegalArgumentException(
+                "Cinema hall '" + booking.getHallName() + "' does not exist or is unavailable.");
+        }
+
         if (booking.getStatus() == null) {
             booking.setStatus("CONFIRMED");
         }

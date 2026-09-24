@@ -14,6 +14,9 @@ public class Movie {
     private String showtime;
     private Double ticketPrice;
 
+    @Column(length = 512)
+    private String posterUrl;  // optional poster image URL
+
     public Movie() {}
 
     public Long getId() { return id; }
@@ -21,12 +24,13 @@ public class Movie {
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getGenre() { return genre; }
-    public void setGenre(String genre) {
-        this.genre = genre; }
+    public void setGenre(String genre) { this.genre = genre; }
     public Integer getDurationMinutes() { return durationMinutes; }
     public void setDurationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; }
     public String getShowtime() { return showtime; }
     public void setShowtime(String showtime) { this.showtime = showtime; }
     public Double getTicketPrice() { return ticketPrice; }
     public void setTicketPrice(Double ticketPrice) { this.ticketPrice = ticketPrice; }
+    public String getPosterUrl() { return posterUrl; }
+    public void setPosterUrl(String posterUrl) { this.posterUrl = posterUrl; }
 }

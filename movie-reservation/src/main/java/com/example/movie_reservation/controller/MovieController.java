@@ -35,6 +35,7 @@ public class MovieController {
             existing.setDurationMinutes(details.getDurationMinutes());
             existing.setShowtime(details.getShowtime());
             existing.setTicketPrice(details.getTicketPrice());
+            existing.setPosterUrl(details.getPosterUrl());
             return ResponseEntity.ok(repo.save(existing));
         }).orElse(ResponseEntity.notFound().build());
     }
