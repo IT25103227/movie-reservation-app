@@ -1,8 +1,7 @@
 package com.example.movie_reservation.controller;
 
 import com.example.movie_reservation.model.FoodItem;
-import com.example.movie_reservation.repository.FoodItemRepository;
-import org.springframework.http.ResponseEntity;
+import com.example.movie_reservation.service.FoodItemService;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -10,40 +9,22 @@ import java.util.List;
 @RequestMapping("/api/food-items")
 @CrossOrigin(origins = "*")
 public class FoodItemController {
+    private final FoodItemService service;
 
-    private final FoodItemRepository repo;
-
-    public FoodItemController(FoodItemRepository repo) {
-        this.repo = repo;
-    }
+    public FoodItemController(FoodItemService service) { this.service = service; }
 
     @GetMapping
-    public List<FoodItem> getAll() {
-        return repo.findAll();
-    }
+    public List<FoodItem> getFood() { return service.getAllFood(); }
 
     @PostMapping
-    public FoodItem create(@RequestBody FoodItem food) {
-        return repo.save(food);
-    }
+    public FoodItem saveFood(@RequestBody FoodItem food) { return service.saveFood(food); }
 
     @PutMapping("/{id}")
-    public ResponseEntity<FoodItem> update(@PathVariable Long id, @RequestBody FoodItem details) {
-        return repo.findById(id).map(existing -> {
-            existing.setItemName(details.getItemName());
-            existing.setCategory(details.getCategory());
-            existing.setPrice(details.getPrice());
-            existing.setIsAvailable(details.getIsAvailable());
-            return ResponseEntity.ok(repo.save(existing));
-        }).orElse(ResponseEntity.notFound().build());
+    public FoodItem updateFood(@PathVariable Long id, @RequestBody FoodItem food) {
+        food.setId(id); // Locks the ID to overwrite the existing record
+        return service.saveFood(food);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (repo.existsById(id)) {
-            repo.deleteById(id);
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.notFound().build();
-    }
+    public void deleteFood(@PathVariable Long id) { service.deleteFood(id); }
 }

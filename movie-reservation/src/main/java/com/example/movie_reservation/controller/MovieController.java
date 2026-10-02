@@ -1,8 +1,7 @@
 package com.example.movie_reservation.controller;
 
 import com.example.movie_reservation.model.Movie;
-import com.example.movie_reservation.repository.MovieRepository;
-import org.springframework.http.ResponseEntity;
+import com.example.movie_reservation.service.MovieService;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -10,42 +9,22 @@ import java.util.List;
 @RequestMapping("/api/movies")
 @CrossOrigin(origins = "*")
 public class MovieController {
+    private final MovieService service;
 
-    private final MovieRepository repo;
-
-    public MovieController(MovieRepository repo) {
-        this.repo = repo;
-    }
+    public MovieController(MovieService service) { this.service = service; }
 
     @GetMapping
-    public List<Movie> getAll() {
-        return repo.findAll();
-    }
+    public List<Movie> getMovies() { return service.getAllMovies(); }
 
     @PostMapping
-    public Movie create(@RequestBody Movie movie) {
-        return repo.save(movie);
-    }
+    public Movie saveMovie(@RequestBody Movie movie) { return service.saveMovie(movie); }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Movie> update(@PathVariable Long id, @RequestBody Movie details) {
-        return repo.findById(id).map(existing -> {
-            existing.setTitle(details.getTitle());
-            existing.setGenre(details.getGenre());
-            existing.setDurationMinutes(details.getDurationMinutes());
-            existing.setShowtime(details.getShowtime());
-            existing.setTicketPrice(details.getTicketPrice());
-            existing.setPosterUrl(details.getPosterUrl());
-            return ResponseEntity.ok(repo.save(existing));
-        }).orElse(ResponseEntity.notFound().build());
+    public Movie updateMovie(@PathVariable Long id, @RequestBody Movie movie) {
+        movie.setId(id); // Ensure the ID matches the existing record
+        return service.saveMovie(movie);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (repo.existsById(id)) {
-            repo.deleteById(id);
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.notFound().build();
-    }
+    public void deleteMovie(@PathVariable Long id) { service.deleteMovie(id); }
 }
