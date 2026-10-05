@@ -14,6 +14,12 @@ public class Movie {
     private String showtime;
     private Double ticketPrice;
 
+    @Column(name = "assigned_hall")
+    private String assignedHall;
+
+    public String getAssignedHall() { return assignedHall; }
+    public void setAssignedHall(String assignedHall) { this.assignedHall = assignedHall; }
+
     @Column(length = 512)
     private String posterUrl;  // optional poster image URL
 
