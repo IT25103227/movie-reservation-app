@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Staff Management — SilverScreen</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/sidebar.css" rel="stylesheet">
+</head>
+<body style="background:#0d1117;color:#e6edf3;margin:0;">
+<div class="ss-page-title">👥 Staff Management</div>
+<div style="background:#1c0a00;border:1px solid #7c2d12;border-radius:10px;padding:12px 18px;font-size:.83rem;color:#fdba74;margin-bottom:20px;">
+    🔒 This page is visible to <strong>Super Administrators only</strong>. Staff accounts are managed via <code>js/auth.js</code>.
+</div>
+
+<div class="ss-card">
+    <div style="font-size:.85rem;font-weight:700;color:#94a3b8;margin-bottom:16px;">Staff Accounts Directory</div>
+    <div style="overflow-x:auto;">
+        <table class="table ss-table">
+            <thead><tr><th>Username</th><th>Display Name</th><th>Role</th><th>Department</th><th>Landing Page</th></tr></thead>
+            <tbody id="staffTable"></tbody>
+        </table>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+const user = requireAuth();
+injectSidebar(user);
+
+const DEPT_MAP = {
+    SUPER_ADMIN:       'Executive / IT',
+    CINEMA_MANAGER:    'Operations',
+    MARKETING_MANAGER: 'Marketing',
+    TICKETING_STAFF:   'Box Office & F&B',
+    PARKING_ATTENDANT: 'Parking & Security',
+};
+
+const ROLE_COLORS = {
+    SUPER_ADMIN:'#7c3aed', CINEMA_MANAGER:'#0ea5e9',
+    MARKETING_MANAGER:'#ec4899', TICKETING_STAFF:'#f59e0b', PARKING_ATTENDANT:'#22c55e'
+};
+
+document.getElementById('staffTable').innerHTML = USERS.map(u => {
+    const c = ROLE_COLORS[u.role] || '#94a3b8';
+    return `
+    <tr>
+        <td><code style="color:#93c5fd;font-size:.85rem;">${u.username}</code></td>
+        <td style="font-weight:600;">${u.displayName}</td>
+        <td><span style="background:${c}22;color:${c};border-radius:20px;padding:3px 12px;font-size:.72rem;font-weight:700;border:1px solid ${c}55;">${u.role.replace(/_/g,' ')}</span></td>
+        <td style="color:#94a3b8;">${DEPT_MAP[u.role]||'—'}</td>
+        <td><a href="${u.landing}" style="color:#38bdf8;font-size:.83rem;">${u.landing}</a></td>
+    </tr>`;
+}).join('');
+</script>
+</body>
+</html>
