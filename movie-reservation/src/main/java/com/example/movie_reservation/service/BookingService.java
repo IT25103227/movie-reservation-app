@@ -4,12 +4,23 @@ import com.example.movie_reservation.model.Booking;
 import com.example.movie_reservation.repository.BookingRepository;
 import com.example.movie_reservation.repository.CinemaHallRepository;
 import com.example.movie_reservation.repository.ParkingSlotRepository;
+import com.example.movie_reservation.strategy.PaymentStrategy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+/**
+ * BookingService — Context class in the Strategy Design Pattern.
+ *
+ * Spring automatically builds a Map<String, PaymentStrategy> whose keys are the
+ * @Component bean names ("CREDIT_CARD", "PAYPAL", "CASH") and whose values are
+ * the corresponding concrete strategy instances.  processBooking() resolves the
+ * correct strategy at runtime based on booking.getPaymentMethod() and delegates
+ * payment execution to it — without any if/else or switch on type names.
+ */
 @Service
 public class BookingService {
 
@@ -17,12 +28,21 @@ public class BookingService {
     private final ParkingSlotRepository parkingRepo;
     private final CinemaHallRepository hallRepo;
 
+    /**
+     * Spring injects all PaymentStrategy beans into this map automatically.
+     * Key   = @Component bean name (e.g. "CREDIT_CARD")
+     * Value = concrete strategy instance
+     */
+    private final Map<String, PaymentStrategy> paymentStrategies;
+
     public BookingService(BookingRepository bookingRepo,
                           ParkingSlotRepository parkingRepo,
-                          CinemaHallRepository hallRepo) {
-        this.bookingRepo = bookingRepo;
-        this.parkingRepo = parkingRepo;
-        this.hallRepo    = hallRepo;
+                          CinemaHallRepository hallRepo,
+                          Map<String, PaymentStrategy> paymentStrategies) {
+        this.bookingRepo       = bookingRepo;
+        this.parkingRepo       = parkingRepo;
+        this.hallRepo          = hallRepo;
+        this.paymentStrategies = paymentStrategies;
     }
 
     public List<Booking> getAllBookings() {
@@ -50,7 +70,25 @@ public class BookingService {
             booking.setStatus("CONFIRMED");
         }
 
-        // Business Rule: Auto-reserve parking bay when selected
+        // ── Strategy Pattern: resolve and execute the payment strategy ──
+        String methodKey = (booking.getPaymentMethod() != null && !booking.getPaymentMethod().isBlank())
+                ? booking.getPaymentMethod().toUpperCase()
+                : "CASH";                                // default to cash if not specified
+
+        PaymentStrategy strategy = paymentStrategies.getOrDefault(methodKey, paymentStrategies.get("CASH"));
+        booking.setPaymentMethod(strategy.getPaymentType()); // normalise stored value
+
+        double amount = (booking.getTotalAmount() != null) ? booking.getTotalAmount() : 0.0;
+        boolean paymentSuccess = strategy.processPayment(amount, booking.getCustomerName());
+
+        booking.setPaymentStatus(paymentSuccess ? "PAID" : "FAILED");
+
+        // Override booking status if payment failed
+        if (!paymentSuccess) {
+            booking.setStatus("PAYMENT_FAILED");
+        }
+
+        // ── Business Rule: Auto-reserve parking bay when selected ──
         if (booking.getParkingSlotId() != null) {
             parkingRepo.findById(booking.getParkingSlotId()).ifPresent(slot -> {
                 slot.setStatus("RESERVED");
@@ -70,10 +108,12 @@ public class BookingService {
             existing.setSeatNumbers(details.getSeatNumbers());
             existing.setTotalAmount(details.getTotalAmount());
             existing.setStatus(details.getStatus());
-            // Sync new fields introduced for the interactive checkout
+            // Sync checkout fields
             existing.setParkingSlotId(details.getParkingSlotId());
             existing.setOrderedSnacks(details.getOrderedSnacks());
             existing.setDiscountAmount(details.getDiscountAmount());
+            existing.setPaymentMethod(details.getPaymentMethod());
+            existing.setPaymentStatus(details.getPaymentStatus());
             return bookingRepo.save(existing);
         });
     }

@@ -102,6 +102,36 @@
         .form-control-dark:disabled { opacity: 0.7; cursor: not-allowed; }
         .alert-inline { border-radius: 8px; padding: 10px 14px; font-size: .85rem; margin-bottom: 14px; }
         .step-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; }
+
+        /* ── Payment Method Selector ── */
+        .pay-option {
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 12px;
+            padding: 18px 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .18s, background .18s, transform .12s;
+            user-select: none;
+        }
+        .pay-option:hover {
+            border-color: #38bdf8;
+            background: #0f2444;
+            transform: translateY(-2px);
+        }
+        .pay-option.selected {
+            border-color: #f59e0b;
+            background: #1c1400;
+            box-shadow: 0 0 18px #f59e0b33;
+        }
+        .pay-option.selected::after {
+            content: '✔';
+            display: block;
+            font-size: .75rem;
+            font-weight: 800;
+            color: #f59e0b;
+            margin-top: 6px;
+        }
     </style>
 </head>
 <body>
@@ -138,7 +168,6 @@
                 </div>
                 <div class="col-sm-6">
                     <label class="form-label" style="color:#94a3b8;font-size:.82rem;font-weight:600;">Cinema Hall *</label>
-                    <!-- NEW: Disabled so user cannot change the mapped hall -->
                     <select id="cb_hall" class="form-control-dark" disabled>
                         <option value="" disabled selected>Select a movie first...</option>
                     </select>
@@ -230,6 +259,29 @@
             <div class="section-title">📋 Order Summary</div>
             <div id="reviewContent"></div>
         </div>
+
+        <!-- ── Payment Method Selector ── -->
+        <div class="checkout-card mb-4">
+            <div class="section-title">💳 Choose Payment Method</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;">
+                <div class="pay-option selected" id="pay_CREDIT_CARD" onclick="selectPayment('CREDIT_CARD')">
+                    <div style="font-size:2rem;margin-bottom:6px;">💳</div>
+                    <div style="font-weight:700;font-size:.92rem;">Credit / Debit Card</div>
+                    <div style="font-size:.73rem;color:#94a3b8;margin-top:3px;">Visa · Mastercard · Amex</div>
+                </div>
+                <div class="pay-option" id="pay_PAYPAL" onclick="selectPayment('PAYPAL')">
+                    <div style="font-size:2rem;margin-bottom:6px;">🅿️</div>
+                    <div style="font-weight:700;font-size:.92rem;">PayPal</div>
+                    <div style="font-size:.73rem;color:#94a3b8;margin-top:3px;">Pay with your PayPal balance</div>
+                </div>
+                <div class="pay-option" id="pay_CASH" onclick="selectPayment('CASH')">
+                    <div style="font-size:2rem;margin-bottom:6px;">💵</div>
+                    <div style="font-weight:700;font-size:.92rem;">Cash at Box Office</div>
+                    <div style="font-size:.73rem;color:#94a3b8;margin-top:3px;">Pay when you arrive</div>
+                </div>
+            </div>
+        </div>
+
         <div class="total-bar mb-4">
             <div><div class="total-label">Total Charged</div></div>
             <div class="total-amount" id="finalTotal">$0.00</div>
@@ -239,7 +291,7 @@
         <div style="text-align:center;margin-top:12px;"><button class="btn-back" onclick="goStep(3)">← Back</button></div>
     </div>
 
-</div>
+</div><!-- /container -->
 
 <!-- ════ TICKET MODAL ════ -->
 <div class="ticket-modal-overlay" id="ticketModal">
@@ -256,6 +308,7 @@
             <div class="ticket-row" id="tk_snacksRow"><span class="tk">Snacks</span><span class="tv" id="tk_snacks">—</span></div>
             <div class="ticket-row"><span class="tk">Total Paid</span><span class="tv" style="color:#f59e0b;" id="tk_total">—</span></div>
             <div class="ticket-row"><span class="tk">Booking ID</span><span class="tv" style="font-family:monospace;" id="tk_id">—</span></div>
+            <div class="ticket-row"><span class="tk">Payment</span><span class="tv" id="tk_payment">—</span></div>
             <div class="ticket-perforation"></div>
             <div class="ticket-qr"><div id="qrcode"></div><div style="font-size:.68rem;color:#94a3b8;margin-top:6px;">Scan at entry</div></div>
         </div>
@@ -268,310 +321,420 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    const state = {
-        currentStep: 1, customerName: '', selectedMovie: null, hallName: '', hallCapacity: 24,
-        halls: [], allBookings: [], selectedSeats: [], reservedSeats: [], ticketPrice: 0,
-        selectedParkingSlot: null, vehicleNumber: '', snackQtys: {}, foodItems: [],
-        appliedPromo: null, discountAmount: 0, bookingId: null,
+/* ═══════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════ */
+const state = {
+    currentStep: 1,
+    customerName: '',
+    selectedMovie: null,
+    hallName: '',
+    hallCapacity: 24,
+    halls: [],
+    allBookings: [],
+    selectedSeats: [],
+    reservedSeats: [],
+    ticketPrice: 0,
+    selectedParkingSlot: null,
+    vehicleNumber: '',
+    snackQtys: {},
+    foodItems: [],
+    appliedPromo: null,
+    discountAmount: 0,
+    paymentMethod: 'CREDIT_CARD',
+    bookingId: null,
+};
+
+/* ═══════════════════════════════════════════════
+   STEP NAVIGATION
+═══════════════════════════════════════════════ */
+function goStep(n) {
+    [1,2,3,4].forEach(i => {
+        document.getElementById(`step${i}`).classList.toggle('d-none', i !== n);
+        const pill = document.getElementById(`spill${i}`);
+        pill.classList.remove('active','done');
+        if (i === n) pill.classList.add('active');
+        else if (i < n) pill.classList.add('done');
+    });
+    state.currentStep = n;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showError(elId, msg) {
+    const el = document.getElementById(elId);
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function selectPayment(method) {
+    state.paymentMethod = method;
+    ['CREDIT_CARD', 'PAYPAL', 'CASH'].forEach(m => {
+        const el = document.getElementById(`pay_${m}`);
+        if (el) el.classList.toggle('selected', m === method);
+    });
+}
+
+/* ═══════════════════════════════════════════════
+   INIT — load movies, halls, and bookings in parallel
+═══════════════════════════════════════════════ */
+async function init() {
+    const [movRes, hallRes, bookRes] = await Promise.all([
+        fetch('/api/movies').then(r => r.json()).catch(() => []),
+        fetch('/api/halls').then(r => r.json()).catch(() => []),
+        fetch('/api/bookings').then(r => r.json()).catch(() => []),
+    ]);
+
+    state.allBookings = bookRes;
+    state.halls = hallRes;
+
+    const movieGrid = document.getElementById('movieGrid');
+    if (!movRes.length) {
+        movieGrid.innerHTML = '<div class="col-12 text-secondary">No movies available. Add them in the Admin portal.</div>';
+    } else {
+        const icons = ['🎬','🎭','🚀','🧨','🌊','🔥','💥','🕵️'];
+        movieGrid.innerHTML = movRes.map((m, i) => `
+            <div class="col-sm-6 col-md-4">
+                <div class="movie-card" id="mc_${m.id}" onclick="selectMovie(${JSON.stringify(m).replace(/"/g,'&quot;')})">
+                    <div style="font-size:2rem;margin-bottom:8px;">${icons[i % icons.length]}</div>
+                    <div style="font-weight:700;margin-bottom:4px;">${m.title}</div>
+                    <div class="mb-2">
+                        <span class="movie-genre-badge">${m.genre}</span>
+                        <span class="movie-genre-badge ms-1">${m.durationMinutes} min</span>
+                    </div>
+                    <div style="font-size:.8rem;color:#64748b;">🕐 ${m.showtime}</div>
+                    <div style="font-size:.75rem;color:#38bdf8;margin-top:4px;">📍 ${m.assignedHall || 'Hall TBD'}</div>
+                    <div style="font-size:1rem;font-weight:800;color:#f59e0b;margin-top:8px;">$${Number(m.ticketPrice).toFixed(2)}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    state.foodItems = await fetch('/api/food-items').then(r => r.json()).catch(() => []);
+    buildConcessionGrid();
+}
+
+/* ═══════════════════════════════════════════════
+   SELECT MOVIE & AUTO-SELECT HALL
+═══════════════════════════════════════════════ */
+function selectMovie(m) {
+    document.querySelectorAll('.movie-card').forEach(c => c.classList.remove('selected-movie'));
+    document.getElementById(`mc_${m.id}`)?.classList.add('selected-movie');
+    state.selectedMovie = m;
+    state.ticketPrice = Number(m.ticketPrice);
+    
+    const hallDropdown = document.getElementById('cb_hall');
+    if (m.assignedHall) {
+        hallDropdown.innerHTML = `<option value="${m.assignedHall}" selected>${m.assignedHall}</option>`;
+        state.hallName = m.assignedHall;
+    } else {
+        hallDropdown.innerHTML = `<option value="" disabled selected>No hall assigned by Admin</option>`;
+        state.hallName = '';
+    }
+
+    updateTicketSubtotal();
+}
+
+/* ═══════════════════════════════════════════════
+   STEP 2 (SEAT FILTERING FIX)
+═══════════════════════════════════════════════ */
+function goStep2() {
+    state.customerName = document.getElementById('cb_name').value.trim();
+    if (!state.customerName) { showError('step1Error','Please enter your name.'); return; }
+    if (!state.selectedMovie) { showError('step1Error','Please select a movie.'); return; }
+    if (!state.hallName) { showError('step1Error','This movie does not have a valid hall assigned yet.'); return; }
+    
+    const hallObj = state.halls.find(h => h.hallName === state.hallName);
+    state.hallCapacity = (hallObj && hallObj.totalCapacity > 0) ? hallObj.totalCapacity : 24;
+
+    state.reservedSeats = [];
+    state.allBookings.forEach(b => {
+        if (b.movieTitle === state.selectedMovie.title && b.hallName === state.hallName) {
+            if (b.seatNumbers) {
+                b.seatNumbers.split(',').forEach(s => {
+                    const clean = s.trim().toUpperCase();
+                    if (clean) state.reservedSeats.push(clean);
+                });
+            }
+        }
+    });
+
+    buildSeatGrid();
+    goStep(2);
+}
+
+function goStep3() {
+    if (state.selectedSeats.length === 0) { showError('step2Error','Please select at least one seat.'); return; }
+    buildParkingGrid();
+    updateGrandTotal();
+    goStep(3);
+}
+
+function goStep4() {
+    state.vehicleNumber = document.getElementById('cb_vehicle').value.trim();
+    selectPayment(state.paymentMethod || 'CREDIT_CARD');
+    buildReviewPanel();
+    document.getElementById('finalTotal').textContent = document.getElementById('grandTotal').textContent;
+    goStep(4);
+}
+
+function buildSeatGrid() {
+    const grid = document.getElementById('seatGrid');
+    const COLS = 8;
+    const capacity = state.hallCapacity || 24;
+    const rowCount = Math.ceil(capacity / COLS);
+    const ROW_LABELS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+    grid.style.setProperty('--seat-cols', COLS);
+    state.selectedSeats = [];
+
+    let html = '';
+    let seatIndex = 0;
+    for (let r = 0; r < rowCount; r++) {
+        const rowLabel = ROW_LABELS[r] || `R${r + 1}`;
+        html += `<div class="row-label">${rowLabel}</div>`;
+        for (let c = 1; c <= COLS; c++) {
+            if (seatIndex >= capacity) {
+                html += `<div></div>`;
+            } else {
+                const seatId = `${rowLabel}${c}`;
+                const isReserved = state.reservedSeats.includes(seatId);
+                const cls = isReserved ? 'reserved' : 'available';
+                html += `<button class="seat-btn ${cls}" id="seat_${seatId}" ${isReserved ? 'disabled' : `onclick="toggleSeat('${seatId}')"`} title="${seatId}">${seatId}</button>`;
+            }
+            seatIndex++;
+        }
+    }
+    grid.innerHTML = html;
+    updateTicketSubtotal();
+}
+
+function toggleSeat(seatId) {
+    const idx = state.selectedSeats.indexOf(seatId);
+    const btn = document.getElementById(`seat_${seatId}`);
+    if (idx === -1) {
+        state.selectedSeats.push(seatId);
+        btn.classList.remove('available');
+        btn.classList.add('selected');
+    } else {
+        state.selectedSeats.splice(idx, 1);
+        btn.classList.remove('selected');
+        btn.classList.add('available');
+    }
+    updateTicketSubtotal();
+}
+
+function updateTicketSubtotal() {
+    const count = state.selectedSeats.length;
+    const sub = count * state.ticketPrice;
+    document.getElementById('seatInfo').textContent = `${count} seat${count !== 1 ? 's' : ''} selected`;
+    document.getElementById('ticketSubtotal').textContent = `$${sub.toFixed(2)}`;
+}
+
+let parkingSlots = [];
+async function buildParkingGrid() {
+    const grid = document.getElementById('parkingGrid');
+    try { parkingSlots = await fetch('/api/parking-slots').then(r => r.json()); } catch { parkingSlots = []; }
+    if (!parkingSlots.length) { grid.innerHTML = '<div class="text-secondary" style="font-size:.82rem;">No parking bays configured yet.</div>'; return; }
+    grid.innerHTML = parkingSlots.map(s => {
+        const isRes = s.status !== 'AVAILABLE';
+        const isSel = state.selectedParkingSlot?.id === s.id;
+        const cls = isRes ? 'reserved' : (isSel ? 'selected' : 'available');
+        return `<div class="bay-btn ${cls}" id="bay_${s.id}" ${isRes ? '' : `onclick="selectBay(${s.id})"`}>
+                    <span class="bay-icon">${isRes ? '🚫' : '🚗'}</span>${s.slotNumber}<br><span style="font-size:.65rem;opacity:.7;">${s.slotType}</span>
+                </div>`;
+    }).join('');
+}
+
+function selectBay(id) {
+    if (state.selectedParkingSlot) document.getElementById(`bay_${state.selectedParkingSlot.id}`)?.classList.replace('selected','available');
+    const slot = parkingSlots.find(s => s.id === id);
+    if (!slot) return;
+    if (state.selectedParkingSlot?.id === id) {
+        state.selectedParkingSlot = null;
+        document.getElementById('parkingSelectedBadge').style.display = 'none';
+        return;
+    }
+    state.selectedParkingSlot = slot;
+    document.getElementById(`bay_${id}`)?.classList.replace('available','selected');
+    document.getElementById(`bay_${id}`)?.querySelector('.bay-icon') && (document.getElementById(`bay_${id}`).querySelector('.bay-icon').textContent = '✅');
+    document.getElementById('parkingBadgeText').textContent = slot.slotNumber;
+    document.getElementById('parkingSelectedBadge').style.display = 'block';
+    updateGrandTotal();
+}
+
+const snackIcons = { Popcorn:'🍿', Beverage:'🥤', Snack:'🍫', Default:'🛒' };
+function buildConcessionGrid() {
+    const grid = document.getElementById('concessionGrid');
+    if (!state.foodItems.length) { grid.innerHTML = '<div class="text-secondary" style="font-size:.82rem;">No items on the menu yet.</div>'; return; }
+    grid.innerHTML = state.foodItems.filter(f => f.isAvailable !== false).map(f => {
+        const icon = snackIcons[f.category] || snackIcons.Default;
+        return `<div class="snack-card" id="sc_${f.id}"><div class="snack-icon">${icon}</div><div class="snack-name">${f.itemName}</div><div class="snack-price">$${Number(f.price).toFixed(2)}</div>
+            <div class="qty-ctrl"><button class="qty-btn minus" onclick="changeQty(${f.id}, -1, ${f.price})">−</button><span class="qty-display" id="qty_${f.id}">0</span><button class="qty-btn plus" onclick="changeQty(${f.id}, +1, ${f.price})">+</button></div></div>`;
+    }).join('');
+}
+
+function changeQty(foodId, delta, price) {
+    const next = Math.max(0, (state.snackQtys[foodId] || 0) + delta);
+    state.snackQtys[foodId] = next;
+    document.getElementById(`qty_${foodId}`).textContent = next;
+    document.getElementById(`sc_${foodId}`)?.classList.toggle('has-items', next > 0);
+    updateGrandTotal();
+}
+
+function clearPromo() {
+    if (state.appliedPromo) {
+        state.appliedPromo = null;
+        state.discountAmount = 0;
+        document.getElementById('promoFeedback').innerHTML = '';
+        updateGrandTotal();
+    }
+}
+
+async function applyPromo() {
+    const code = document.getElementById('promoInput').value.trim();
+    if (!code) return;
+    const fb = document.getElementById('promoFeedback');
+    fb.innerHTML = '<span style="color:#94a3b8;">Validating…</span>';
+    try {
+        const res = await fetch('/api/promotions');
+        const promotions = await res.json();
+        const promo = promotions.find(p => p.promoCode && p.promoCode.toUpperCase() === code.toUpperCase() && p.active !== false);
+        if (promo) {
+            state.appliedPromo = promo;
+            updateGrandTotal();
+            fb.innerHTML = `<span style="background:#14532d;color:#86efac;border-radius:6px;padding:4px 12px;font-weight:700;">✅ ${promo.promoCode} — ${promo.discountPercentage}% OFF applied!</span>`;
+        } else {
+            state.appliedPromo = null;
+            state.discountAmount = 0;
+            updateGrandTotal();
+            fb.innerHTML = '<span style="color:#fca5a5;">❌ Invalid or inactive promo code.</span>';
+        }
+    } catch (err) { fb.innerHTML = '<span style="color:#fca5a5;">❌ Could not connect to server.</span>'; }
+}
+
+function getSnackSubtotal() {
+    return state.foodItems.reduce((sum, f) => sum + (state.snackQtys[f.id] || 0) * Number(f.price), 0);
+}
+
+function updateGrandTotal() {
+    const subtotal = (state.selectedSeats.length * state.ticketPrice) + getSnackSubtotal();
+    state.discountAmount = state.appliedPromo ? subtotal * (state.appliedPromo.discountPercentage / 100) : 0;
+    document.getElementById('grandTotal').textContent = `$${Math.max(0, subtotal - state.discountAmount).toFixed(2)}`;
+    document.getElementById('totalBreakdown').textContent = `Tickets $${(state.selectedSeats.length * state.ticketPrice).toFixed(2)} + Snacks $${getSnackSubtotal().toFixed(2)}` + (state.appliedPromo ? ` − Promo $${state.discountAmount.toFixed(2)}` : '');
+}
+
+function buildReviewPanel() {
+    const ticketSub = state.selectedSeats.length * state.ticketPrice;
+    const snackSub = getSnackSubtotal();
+    const snackList = state.foodItems.filter(f => (state.snackQtys[f.id] || 0) > 0).map(f => `${f.itemName} ×${state.snackQtys[f.id]}`);
+    let html = `<div class="summary-row"><span class="summary-key">Name</span><span class="summary-val">${state.customerName}</span></div>
+        <div class="summary-row"><span class="summary-key">Movie</span><span class="summary-val">${state.selectedMovie?.title}</span></div>
+        <div class="summary-row"><span class="summary-key">Hall</span><span class="summary-val">${state.hallName}</span></div>
+        <div class="summary-row"><span class="summary-key">Seats (×${state.selectedSeats.length})</span><span class="summary-val">${state.selectedSeats.map(s => `<span class="seat-chip">${s}</span>`).join('')}<br><span style="color:#f59e0b;font-size:.85rem;">$${ticketSub.toFixed(2)}</span></span></div>`;
+    if (state.selectedParkingSlot) html += `<div class="summary-row"><span class="summary-key">Parking Bay</span><span class="summary-val"><span class="parking-badge">${state.selectedParkingSlot.slotNumber}</span>${state.vehicleNumber ? `<br><span style="font-size:.78rem;color:#64748b;">${state.vehicleNumber}</span>` : ''}</span></div>`;
+    if (snackList.length) html += `<div class="summary-row"><span class="summary-key">Snacks</span><span class="summary-val">${snackList.join(', ')}<br><span style="color:#f59e0b;font-size:.85rem;">$${snackSub.toFixed(2)}</span></span></div>`;
+    if (state.appliedPromo) html += `<div class="summary-row"><span class="summary-key">Promo (${state.appliedPromo.promoCode})</span><span class="summary-val" style="color:#22c55e;">−$${state.discountAmount.toFixed(2)}</span></div>`;
+    document.getElementById('reviewContent').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════
+   CONFIRM BOOKING → POST
+═══════════════════════════════════════════════ */
+async function confirmBooking() {
+    const ticketSub = state.selectedSeats.length * state.ticketPrice;
+    const snackSub = getSnackSubtotal();
+    const grand = Math.max(0, ticketSub + snackSub - state.discountAmount);
+
+    const snackPayload = state.foodItems
+        .filter(f => (state.snackQtys[f.id] || 0) > 0)
+        .map(f => ({ name: f.itemName, qty: state.snackQtys[f.id], price: f.price }));
+
+    const body = {
+        customerName: state.customerName,
+        movieTitle: state.selectedMovie.title,
+        hallName: state.hallName,
+        seatNumbers: state.selectedSeats.join(', '),
+        totalAmount: grand,
+        status: 'CONFIRMED',
+        parkingSlotId: state.selectedParkingSlot?.id ?? null,
+        orderedSnacks: snackPayload.length ? JSON.stringify(snackPayload) : null,
+        discountAmount: state.discountAmount,
+        paymentMethod: state.paymentMethod || 'CASH',
     };
 
-    function goStep(n) {
-        [1,2,3,4].forEach(i => {
-            document.getElementById(`step${i}`).classList.toggle('d-none', i !== n);
-            const pill = document.getElementById(`spill${i}`);
-            pill.classList.remove('active','done');
-            if (i === n) pill.classList.add('active'); else if (i < n) pill.classList.add('done');
+    const confirmBtn = document.querySelector('.btn-confirm');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Processing…';
+
+    try {
+        const res = await fetch('/api/bookings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
         });
-        state.currentStep = n; window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        const saved = await res.json();
+        openTicketModal(saved, grand, snackPayload);
+    } catch (err) {
+        document.getElementById('confirmError').textContent = `Booking failed: ${err.message}`;
+        document.getElementById('confirmError').style.display = 'block';
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '🎟️ Confirm & Get My Ticket';
+    }
+}
+
+/* ═══════════════════════════════════════════════
+   DIGITAL TICKET MODAL
+═══════════════════════════════════════════════ */
+function openTicketModal(booking, grand, snacks) {
+    document.getElementById('tk_movie').textContent = booking.movieTitle;
+    document.getElementById('tk_hall').textContent = booking.hallName;
+    document.getElementById('tk_name').textContent = booking.customerName;
+    document.getElementById('tk_seats').innerHTML = state.selectedSeats.map(s => `<span class="seat-chip">${s}</span>`).join(' ');
+    document.getElementById('tk_total').textContent = `$${grand.toFixed(2)}`;
+    document.getElementById('tk_id').textContent = `#${String(booking.id).padStart(6,'0')}`;
+
+    const PAY_LABELS = {
+        'CREDIT_CARD': '💳 Credit / Debit Card',
+        'PAYPAL': '🅿️️ PayPal',
+        'CASH': '💵 Cash at Box Office',
+    };
+    document.getElementById('tk_payment').textContent = PAY_LABELS[booking.paymentMethod] || booking.paymentMethod || '—';
+
+    if (state.selectedParkingSlot) {
+        document.getElementById('tk_parking').textContent = state.selectedParkingSlot.slotNumber;
+        document.getElementById('tk_parkingRow').style.display = '';
+    } else {
+        document.getElementById('tk_parkingRow').style.display = 'none';
     }
 
-    function showError(elId, msg) {
-        const el = document.getElementById(elId); el.textContent = msg; el.style.display = 'block';
-        setTimeout(() => { el.style.display = 'none'; }, 4000);
+    if (snacks.length) {
+        document.getElementById('tk_snacks').textContent = snacks.map(s => `${s.name}×${s.qty}`).join(', ');
+        document.getElementById('tk_snacksRow').style.display = '';
+    } else {
+        document.getElementById('tk_snacksRow').style.display = 'none';
     }
 
-    // ── INIT ──
-    async function init() {
-        const [movRes, hallRes, bookRes] = await Promise.all([
-            fetch('/api/movies').then(r => r.json()).catch(() => []),
-            fetch('/api/halls').then(r => r.json()).catch(() => []),
-            fetch('/api/bookings').then(r => r.json()).catch(() => []),
-        ]);
+    const qrContainer = document.getElementById('qrcode');
+    qrContainer.innerHTML = '';
+    new QRCode(qrContainer, {
+        text: `SILVERSCREEN | ID:#${booking.id} | ${booking.movieTitle} | Seats:${booking.seatNumbers} | $${grand.toFixed(2)}`,
+        width: 160, height: 160,
+        colorDark: '#0f172a',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M,
+    });
 
-        state.allBookings = bookRes;
-        state.halls = hallRes;
+    document.getElementById('ticketModal').classList.add('show');
+}
 
-        const movieGrid = document.getElementById('movieGrid');
-        if (!movRes.length) {
-            movieGrid.innerHTML = '<div class="col-12 text-secondary">No movies available. Add them in the Admin portal.</div>';
-        } else {
-            const icons = ['🎬','🎭','🚀','🧨','🌊','🔥','💥','🕵️'];
-            movieGrid.innerHTML = movRes.map((m, i) => `
-                <div class="col-sm-6 col-md-4">
-                    <div class="movie-card" id="mc_${m.id}" onclick="selectMovie(${JSON.stringify(m).replace(/"/g,'&quot;')})">
-                        <div style="font-size:2rem;margin-bottom:8px;">${icons[i % icons.length]}</div>
-                        <div style="font-weight:700;margin-bottom:4px;">${m.title}</div>
-                        <div class="mb-2">
-                            <span class="movie-genre-badge">${m.genre}</span>
-                            <span class="movie-genre-badge ms-1">${m.durationMinutes} min</span>
-                        </div>
-                        <div style="font-size:.8rem;color:#64748b;">🕐 ${m.showtime}</div>
-                        <!-- NEW: Display assigned hall to customer -->
-                        <div style="font-size:.75rem;color:#38bdf8;margin-top:4px;">📍 ${m.assignedHall || 'Hall TBD'}</div>
-                        <div style="font-size:1rem;font-weight:800;color:#f59e0b;margin-top:8px;">$${Number(m.ticketPrice).toFixed(2)}</div>
-                    </div>
-                </div>
-            `).join('');
-        }
+function closeTicket() {
+    document.getElementById('ticketModal').classList.remove('show');
+    location.reload();
+}
 
-        state.foodItems = await fetch('/api/food-items').then(r => r.json()).catch(() => []);
-        buildConcessionGrid();
-    }
-
-    // ── SELECT MOVIE & AUTO-SELECT HALL ──
-    function selectMovie(m) {
-        document.querySelectorAll('.movie-card').forEach(c => c.classList.remove('selected-movie'));
-        document.getElementById(`mc_${m.id}`)?.classList.add('selected-movie');
-        state.selectedMovie = m;
-        state.ticketPrice = Number(m.ticketPrice);
-
-        // Auto-select the assigned hall in the disabled dropdown
-        const hallDropdown = document.getElementById('cb_hall');
-        if (m.assignedHall) {
-            hallDropdown.innerHTML = `<option value="${m.assignedHall}" selected>${m.assignedHall}</option>`;
-            state.hallName = m.assignedHall;
-        } else {
-            hallDropdown.innerHTML = `<option value="" disabled selected>No hall assigned by Admin</option>`;
-            state.hallName = '';
-        }
-
-        updateTicketSubtotal();
-    }
-
-    // ── STEP 2 (SEAT FILTERING FIX) ──
-    function goStep2() {
-        state.customerName = document.getElementById('cb_name').value.trim();
-        if (!state.customerName) { showError('step1Error','Please enter your name.'); return; }
-        if (!state.selectedMovie) { showError('step1Error','Please select a movie.'); return; }
-        if (!state.hallName) { showError('step1Error','This movie does not have a valid hall assigned yet.'); return; }
-
-        const hallObj = state.halls.find(h => h.hallName === state.hallName);
-        state.hallCapacity = (hallObj && hallObj.totalCapacity > 0) ? hallObj.totalCapacity : 24;
-
-        // Filter reserved seats by specific Movie AND Hall
-        state.reservedSeats = [];
-        state.allBookings.forEach(b => {
-            if (b.movieTitle === state.selectedMovie.title && b.hallName === state.hallName) {
-                if (b.seatNumbers) {
-                    b.seatNumbers.split(',').forEach(s => {
-                        const clean = s.trim().toUpperCase();
-                        if (clean) state.reservedSeats.push(clean);
-                    });
-                }
-            }
-        });
-
-        buildSeatGrid();
-        goStep(2);
-    }
-
-    function goStep3() {
-        if (state.selectedSeats.length === 0) { showError('step2Error','Please select at least one seat.'); return; }
-        buildParkingGrid(); updateGrandTotal(); goStep(3);
-    }
-
-    function goStep4() {
-        state.vehicleNumber = document.getElementById('cb_vehicle').value.trim();
-        buildReviewPanel();
-        document.getElementById('finalTotal').textContent = document.getElementById('grandTotal').textContent;
-        goStep(4);
-    }
-
-    function buildSeatGrid() {
-        const grid = document.getElementById('seatGrid');
-        const COLS = 8;
-        const capacity = state.hallCapacity || 24;
-        const rowCount = Math.ceil(capacity / COLS);
-        const ROW_LABELS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
-        grid.style.setProperty('--seat-cols', COLS);
-        state.selectedSeats = [];
-
-        let html = '';
-        let seatIndex = 0;
-        for (let r = 0; r < rowCount; r++) {
-            const rowLabel = ROW_LABELS[r] || `R${r + 1}`;
-            html += `<div class="row-label">${rowLabel}</div>`;
-            for (let c = 1; c <= COLS; c++) {
-                if (seatIndex >= capacity) {
-                    html += `<div></div>`;
-                } else {
-                    const seatId = `${rowLabel}${c}`;
-                    const isReserved = state.reservedSeats.includes(seatId);
-                    const cls = isReserved ? 'reserved' : 'available';
-                    html += `<button class="seat-btn ${cls}" id="seat_${seatId}" ${isReserved ? 'disabled' : `onclick="toggleSeat('${seatId}')"`} title="${seatId}">${seatId}</button>`;
-                }
-                seatIndex++;
-            }
-        }
-        grid.innerHTML = html;
-        updateTicketSubtotal();
-    }
-
-    function toggleSeat(seatId) {
-        const idx = state.selectedSeats.indexOf(seatId);
-        const btn = document.getElementById(`seat_${seatId}`);
-        if (idx === -1) {
-            state.selectedSeats.push(seatId);
-            btn.classList.remove('available'); btn.classList.add('selected');
-        } else {
-            state.selectedSeats.splice(idx, 1);
-            btn.classList.remove('selected'); btn.classList.add('available');
-        }
-        updateTicketSubtotal();
-    }
-
-    function updateTicketSubtotal() {
-        const count = state.selectedSeats.length;
-        const sub = count * state.ticketPrice;
-        document.getElementById('seatInfo').textContent = `${count} seat${count !== 1 ? 's' : ''} selected`;
-        document.getElementById('ticketSubtotal').textContent = `$${sub.toFixed(2)}`;
-    }
-
-    let parkingSlots = [];
-    async function buildParkingGrid() {
-        const grid = document.getElementById('parkingGrid');
-        try { parkingSlots = await fetch('/api/parking-slots').then(r => r.json()); } catch { parkingSlots = []; }
-        if (!parkingSlots.length) { grid.innerHTML = '<div class="text-secondary" style="font-size:.82rem;">No parking bays configured yet.</div>'; return; }
-        grid.innerHTML = parkingSlots.map(s => {
-            const isRes = s.status !== 'AVAILABLE';
-            const isSel = state.selectedParkingSlot?.id === s.id;
-            const cls = isRes ? 'reserved' : (isSel ? 'selected' : 'available');
-            return `<div class="bay-btn ${cls}" id="bay_${s.id}" ${isRes ? '' : `onclick="selectBay(${s.id})"`}>
-                        <span class="bay-icon">${isRes ? '🚫' : '🚗'}</span>${s.slotNumber}<br><span style="font-size:.65rem;opacity:.7;">${s.slotType}</span>
-                    </div>`;
-        }).join('');
-    }
-
-    function selectBay(id) {
-        if (state.selectedParkingSlot) document.getElementById(`bay_${state.selectedParkingSlot.id}`)?.classList.replace('selected','available');
-        const slot = parkingSlots.find(s => s.id === id);
-        if (!slot) return;
-        if (state.selectedParkingSlot?.id === id) {
-            state.selectedParkingSlot = null; document.getElementById('parkingSelectedBadge').style.display = 'none'; return;
-        }
-        state.selectedParkingSlot = slot;
-        document.getElementById(`bay_${id}`)?.classList.replace('available','selected');
-        document.getElementById(`bay_${id}`)?.querySelector('.bay-icon') && (document.getElementById(`bay_${id}`).querySelector('.bay-icon').textContent = '✅');
-        document.getElementById('parkingBadgeText').textContent = slot.slotNumber;
-        document.getElementById('parkingSelectedBadge').style.display = 'block';
-        updateGrandTotal();
-    }
-
-    const snackIcons = { Popcorn:'🍿', Beverage:'🥤', Snack:'🍫', Default:'🛒' };
-    function buildConcessionGrid() {
-        const grid = document.getElementById('concessionGrid');
-        if (!state.foodItems.length) { grid.innerHTML = '<div class="text-secondary" style="font-size:.82rem;">No items on the menu yet.</div>'; return; }
-        grid.innerHTML = state.foodItems.filter(f => f.isAvailable !== false).map(f => {
-            const icon = snackIcons[f.category] || snackIcons.Default;
-            return `<div class="snack-card" id="sc_${f.id}"><div class="snack-icon">${icon}</div><div class="snack-name">${f.itemName}</div><div class="snack-price">$${Number(f.price).toFixed(2)}</div>
-                <div class="qty-ctrl"><button class="qty-btn minus" onclick="changeQty(${f.id}, -1, ${f.price})">−</button><span class="qty-display" id="qty_${f.id}">0</span><button class="qty-btn plus" onclick="changeQty(${f.id}, +1, ${f.price})">+</button></div></div>`;
-        }).join('');
-    }
-
-    function changeQty(foodId, delta, price) {
-        const next = Math.max(0, (state.snackQtys[foodId] || 0) + delta);
-        state.snackQtys[foodId] = next;
-        document.getElementById(`qty_${foodId}`).textContent = next;
-        document.getElementById(`sc_${foodId}`)?.classList.toggle('has-items', next > 0);
-        updateGrandTotal();
-    }
-
-    function clearPromo() {
-        if (state.appliedPromo) { state.appliedPromo = null; state.discountAmount = 0; document.getElementById('promoFeedback').innerHTML = ''; updateGrandTotal(); }
-    }
-
-    async function applyPromo() {
-        const code = document.getElementById('promoInput').value.trim();
-        if (!code) return;
-        const fb = document.getElementById('promoFeedback');
-        fb.innerHTML = '<span style="color:#94a3b8;">Validating…</span>';
-        try {
-            const res = await fetch('/api/promotions');
-            const promotions = await res.json();
-            const promo = promotions.find(p => p.promoCode && p.promoCode.toUpperCase() === code.toUpperCase() && p.active !== false);
-            if (promo) {
-                state.appliedPromo = promo; updateGrandTotal();
-                fb.innerHTML = `<span style="background:#14532d;color:#86efac;border-radius:6px;padding:4px 12px;font-weight:700;">✅ ${promo.promoCode} — ${promo.discountPercentage}% OFF applied!</span>`;
-            } else {
-                state.appliedPromo = null; state.discountAmount = 0; updateGrandTotal();
-                fb.innerHTML = '<span style="color:#fca5a5;">❌ Invalid or inactive promo code.</span>';
-            }
-        } catch (err) { fb.innerHTML = '<span style="color:#fca5a5;">❌ Could not connect to server.</span>'; }
-    }
-
-    function getSnackSubtotal() { return state.foodItems.reduce((sum, f) => sum + (state.snackQtys[f.id] || 0) * Number(f.price), 0); }
-
-    function updateGrandTotal() {
-        const subtotal = (state.selectedSeats.length * state.ticketPrice) + getSnackSubtotal();
-        state.discountAmount = state.appliedPromo ? subtotal * (state.appliedPromo.discountPercentage / 100) : 0;
-        document.getElementById('grandTotal').textContent = `$${Math.max(0, subtotal - state.discountAmount).toFixed(2)}`;
-        document.getElementById('totalBreakdown').textContent = `Tickets $${(state.selectedSeats.length * state.ticketPrice).toFixed(2)} + Snacks $${getSnackSubtotal().toFixed(2)}` + (state.appliedPromo ? ` − Promo $${state.discountAmount.toFixed(2)}` : '');
-    }
-
-    function buildReviewPanel() {
-        const ticketSub = state.selectedSeats.length * state.ticketPrice;
-        const snackSub = getSnackSubtotal();
-        const snackList = state.foodItems.filter(f => (state.snackQtys[f.id] || 0) > 0).map(f => `${f.itemName} ×${state.snackQtys[f.id]}`);
-        let html = `<div class="summary-row"><span class="summary-key">Name</span><span class="summary-val">${state.customerName}</span></div>
-            <div class="summary-row"><span class="summary-key">Movie</span><span class="summary-val">${state.selectedMovie?.title}</span></div>
-            <div class="summary-row"><span class="summary-key">Hall</span><span class="summary-val">${state.hallName}</span></div>
-            <div class="summary-row"><span class="summary-key">Seats (×${state.selectedSeats.length})</span><span class="summary-val">${state.selectedSeats.map(s => `<span class="seat-chip">${s}</span>`).join('')}<br><span style="color:#f59e0b;font-size:.85rem;">$${ticketSub.toFixed(2)}</span></span></div>`;
-        if (state.selectedParkingSlot) html += `<div class="summary-row"><span class="summary-key">Parking Bay</span><span class="summary-val"><span class="parking-badge">${state.selectedParkingSlot.slotNumber}</span>${state.vehicleNumber ? `<br><span style="font-size:.78rem;color:#64748b;">${state.vehicleNumber}</span>` : ''}</span></div>`;
-        if (snackList.length) html += `<div class="summary-row"><span class="summary-key">Snacks</span><span class="summary-val">${snackList.join(', ')}<br><span style="color:#f59e0b;font-size:.85rem;">$${snackSub.toFixed(2)}</span></span></div>`;
-        if (state.appliedPromo) html += `<div class="summary-row"><span class="summary-key">Promo (${state.appliedPromo.promoCode})</span><span class="summary-val" style="color:#22c55e;">−$${state.discountAmount.toFixed(2)}</span></div>`;
-        document.getElementById('reviewContent').innerHTML = html;
-    }
-
-    async function confirmBooking() {
-        const grand = Math.max(0, (state.selectedSeats.length * state.ticketPrice) + getSnackSubtotal() - state.discountAmount);
-        const snackPayload = state.foodItems.filter(f => (state.snackQtys[f.id] || 0) > 0).map(f => ({ name: f.itemName, qty: state.snackQtys[f.id], price: f.price }));
-        const confirmBtn = document.querySelector('.btn-confirm');
-        confirmBtn.disabled = true; confirmBtn.textContent = 'Processing…';
-        try {
-            const res = await fetch('/api/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-                customerName: state.customerName, movieTitle: state.selectedMovie.title, hallName: state.hallName,
-                seatNumbers: state.selectedSeats.join(', '), totalAmount: grand, status: 'CONFIRMED',
-                parkingSlotId: state.selectedParkingSlot?.id ?? null, orderedSnacks: snackPayload.length ? JSON.stringify(snackPayload) : null,
-                discountAmount: state.discountAmount,
-            })});
-            if (!res.ok) throw new Error(`Server error ${res.status}`);
-            const saved = await res.json();
-            openTicketModal(saved, grand, snackPayload);
-        } catch (err) {
-            document.getElementById('confirmError').textContent = `Booking failed: ${err.message}`;
-            document.getElementById('confirmError').style.display = 'block';
-            confirmBtn.disabled = false; confirmBtn.textContent = '🎟️ Confirm & Get My Ticket';
-        }
-    }
-
-    function openTicketModal(booking, grand, snacks) {
-        document.getElementById('tk_movie').textContent = booking.movieTitle;
-        document.getElementById('tk_hall').textContent = booking.hallName;
-        document.getElementById('tk_name').textContent = booking.customerName;
-        document.getElementById('tk_seats').innerHTML = state.selectedSeats.map(s => `<span class="seat-chip">${s}</span>`).join(' ');
-        document.getElementById('tk_total').textContent = `$${grand.toFixed(2)}`;
-        document.getElementById('tk_id').textContent = `#${String(booking.id).padStart(6,'0')}`;
-        if (state.selectedParkingSlot) { document.getElementById('tk_parking').textContent = state.selectedParkingSlot.slotNumber; document.getElementById('tk_parkingRow').style.display = ''; } else document.getElementById('tk_parkingRow').style.display = 'none';
-        if (snacks.length) { document.getElementById('tk_snacks').textContent = snacks.map(s => `${s.name}×${s.qty}`).join(', '); document.getElementById('tk_snacksRow').style.display = ''; } else document.getElementById('tk_snacksRow').style.display = 'none';
-        const qrContainer = document.getElementById('qrcode');
-        qrContainer.innerHTML = '';
-        new QRCode(qrContainer, { text: `SILVERSCREEN | ID:#${booking.id} | ${booking.movieTitle} | Seats:${booking.seatNumbers} | $${grand.toFixed(2)}`, width: 160, height: 160, colorDark: '#0f172a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
-        document.getElementById('ticketModal').classList.add('show');
-    }
-    function closeTicket() { document.getElementById('ticketModal').classList.remove('show'); location.reload(); }
-
-    init();
+init();
 </script>
 </body>
 </html>

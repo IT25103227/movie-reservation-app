@@ -27,6 +27,12 @@ public class Booking {
     /** Dollar amount discounted via promo code (0 if none applied). */
     private Double discountAmount;
 
+    /** Payment method chosen by the customer: CREDIT_CARD, PAYPAL, or CASH. */
+    private String paymentMethod;
+
+    /** Payment outcome set by BookingService after running the payment strategy. */
+    private String paymentStatus;
+
     public Booking() {}
 
     public Long getId() { return id; }
@@ -58,4 +64,10 @@ public class Booking {
 
     public Double getDiscountAmount() { return discountAmount; }
     public void setDiscountAmount(Double discountAmount) { this.discountAmount = discountAmount; }
+
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
 }
